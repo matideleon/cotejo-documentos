@@ -367,7 +367,13 @@ function llamarModelo(dataUrl, tipo){
       method:"POST", headers:{ "content-type":"application/json" },
       body: JSON.stringify({ image:b64, mediaType:mt, tipo:tipo })
     }).then(leerRespuesta).then(function(d){
-      if(d.error) throw new Error(d.error + (d.detalle ? " — " + d.detalle : ""));
+      if(d.error){
+        var msg = d.error + (d.detalle ? " — " + d.detalle : "");
+        // El servidor no tiene la clave, pero se puede trabajar igual pegandola en Ajustes.
+        if(/falta la clave|api[ _-]?key/i.test(msg))
+          msg += " — o pega tu API key en ⚙ Ajustes y la pagina llama al proveedor directo, sin tocar Netlify.";
+        throw new Error(msg);
+      }
       return { regs:d.registros || null, crudo:d.crudo || "" };
     });
   }
@@ -546,12 +552,12 @@ function analizar(){
       $("estado").innerHTML = '<span class="sp"></span>Leyendo ' + t.etq + ' (' + (hechas+1) + '/' + total + ')...';
       return leerPagina(t.url, t.tipo).then(function(r){
         hechas++;
-        if(!Array.isArray(r.regs)) notas.push(t.etq + ": no se pudo interpretar la respuesta" + (r.crudo ? " — dijo: " + r.crudo : ""));
-        else if(!r.regs.length) notas.push(t.etq + ": el modelo no devolvio ningun registro" + (r.crudo ? " — dijo: " + r.crudo : ""));
+        if(!Array.isArray(r.regs)) notas.push({ etq:t.etq, msg:"no se pudo interpretar la respuesta" + (r.crudo ? " — dijo: " + r.crudo : "") });
+        else if(!r.regs.length) notas.push({ etq:t.etq, msg:"el modelo no devolvio ningun registro" + (r.crudo ? " — dijo: " + r.crudo : "") });
         else if(t.tipo === "documento") S.docs = S.docs.concat(r.regs);
         else S.regs = S.regs.concat(r.regs);
       }).catch(function(e){
-        hechas++; notas.push(t.etq + ": " + (e.message||e));
+        hechas++; notas.push({ etq:t.etq, msg:"" + (e.message||e) });
       });
     });
   });
@@ -561,8 +567,8 @@ function analizar(){
     // Si ninguna cedula pasa el digito verificador, lo decimos fuerte.
     var cis = S.docs.concat(S.regs).map(function(x){ return soloDig(x.cedula); }).filter(Boolean);
     if(cis.length && !cis.filter(ciValida).length){
-      notas.unshift("ATENCION: ninguna de las " + cis.length + " cedulas leidas pasa el digito verificador. " +
-        "Es muy probable que el modelo no este viendo las imagenes. Revisa el modelo en Ajustes.");
+      notas.unshift({ etq:"", msg:"ATENCION: ninguna de las " + cis.length + " cedulas leidas pasa el digito verificador. " +
+        "Es muy probable que el modelo no este viendo las imagenes. Revisa el modelo en Ajustes." });
     }
     S.trabajando = false;
     recotejar();
@@ -578,10 +584,24 @@ function recotejar(){
   pintarResultado();
 }
 
+function enumerar(xs){
+  return xs.length < 2 ? (xs[0]||"") : xs.slice(0,-1).join(", ") + " y " + xs[xs.length-1];
+}
+
 function pintarAvisos(notas){
   var a = $("avisos");
   if(!notas || !notas.length){ a.classList.remove("show"); return; }
-  a.innerHTML = '<strong>Revisar:</strong><ul>' + notas.map(function(n){ return '<li>' + esc(n) + '</li>'; }).join("") + '</ul>';
+  // Cuando falla una pagina suelen fallar todas por el mismo motivo: se agrupan
+  // bajo un solo mensaje en vez de repetir el mismo texto una vez por pagina.
+  var orden = [], porMsg = {};
+  notas.forEach(function(n){
+    if(!porMsg[n.msg]){ porMsg[n.msg] = []; orden.push(n.msg); }
+    if(n.etq) porMsg[n.msg].push(n.etq);
+  });
+  a.innerHTML = '<strong>Revisar:</strong><ul>' + orden.map(function(m){
+    var e = porMsg[m];
+    return '<li>' + (e.length ? '<strong>' + esc(enumerar(e)) + '</strong>: ' : "") + esc(m) + '</li>';
+  }).join("") + '</ul>';
   a.classList.add("show");
 }
 
