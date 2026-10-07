@@ -63,7 +63,7 @@ exports.handler = async (event) => {
           role: "user",
           content: [
             { type: "text", text: prompt },
-            { type: "image_url", image_url: { url: dataUrl, detail: "high" } },
+            { type: "image_url", image_url: { url: dataUrl, detail: (process.env.LLM_IMAGE_DETAIL || "auto") } },
           ],
         }],
       }),
