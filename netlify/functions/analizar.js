@@ -33,9 +33,11 @@ exports.handler = async (event) => {
     return { statusCode: 405, body: JSON.stringify({ error: "Metodo no permitido" }) };
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  // Sirve para cualquier proveedor compatible con la API de OpenAI:
+  // OpenAI, OpenRouter, Groq, Together. Solo cambian LLM_BASE_URL y LLM_MODEL.
+  const apiKey = process.env.LLM_API_KEY || process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return { statusCode: 500, body: JSON.stringify({ error: "Falta configurar OPENAI_API_KEY en las variables de entorno de Netlify." }) };
+    return { statusCode: 500, body: JSON.stringify({ error: "Falta la clave: configura LLM_API_KEY (o OPENAI_API_KEY / OPENROUTER_API_KEY) en las variables de entorno de Netlify." }) };
   }
 
   let body;
@@ -46,27 +48,40 @@ exports.handler = async (event) => {
   if (!image) return { statusCode: 400, body: JSON.stringify({ error: "Falta la imagen" }) };
 
   const prompt = tipo === "planilla" ? PROMPT_PLAN : PROMPT_DOC;
-  const modelo = process.env.OPENAI_MODEL || "gpt-6.1-sol";
+  const modelo = process.env.LLM_MODEL || process.env.OPENAI_MODEL || "gpt-6.1-sol";
+  const baseUrl = (process.env.LLM_BASE_URL || process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/, "");
+  const esOpenAI = baseUrl.indexOf("api.openai.com") !== -1;
   const dataUrl = "data:" + (mediaType || "image/jpeg") + ";base64," + image;
 
+  // OpenAI usa max_completion_tokens; el resto de los proveedores, max_tokens.
+  const cuerpo = {
+    model: modelo,
+    messages: [{
+      role: "user",
+      content: [
+        { type: "text", text: prompt },
+        { type: "image_url", image_url: { url: dataUrl, detail: (process.env.LLM_IMAGE_DETAIL || "auto") } },
+      ],
+    }],
+  };
+  if (esOpenAI) cuerpo.max_completion_tokens = 4000;
+  else cuerpo.max_tokens = 4000;
+
+  const cabeceras = {
+    "content-type": "application/json",
+    "authorization": "Bearer " + apiKey,
+  };
+  // OpenRouter pide estas dos para atribuir el trafico
+  if (baseUrl.indexOf("openrouter") !== -1) {
+    cabeceras["HTTP-Referer"] = process.env.APP_URL || "https://promo-cotejo.netlify.app";
+    cabeceras["X-Title"] = "Cotejo de Documentos";
+  }
+
   try {
-    const r = await fetch("https://api.openai.com/v1/chat/completions", {
+    const r = await fetch(baseUrl + "/chat/completions", {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "authorization": "Bearer " + apiKey,
-      },
-      body: JSON.stringify({
-        model: modelo,
-        max_completion_tokens: 4000,
-        messages: [{
-          role: "user",
-          content: [
-            { type: "text", text: prompt },
-            { type: "image_url", image_url: { url: dataUrl, detail: (process.env.LLM_IMAGE_DETAIL || "auto") } },
-          ],
-        }],
-      }),
+      headers: cabeceras,
+      body: JSON.stringify(cuerpo),
     });
 
     if (!r.ok) {

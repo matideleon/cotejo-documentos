@@ -10,12 +10,18 @@ OpenAI del lado del servidor (la API key nunca viaja al navegador).
 
 1. Entra a https://app.netlify.com/drop
 2. Arrastra la carpeta descomprimida (no el zip) a la zona de drop.
-3. Una vez creado el sitio, anda a **Site configuration → Environment variables**
-   y agrega:
+3. En **Site configuration → Environment variables**, agrega:
 
-   | Variable          | Valor             |
-   |-------------------|-------------------|
-   | `OPENAI_API_KEY` | tu clave `sk-...`        |
+   | Variable         | Obligatoria | Valor |
+   |------------------|-------------|-------|
+   | `LLM_API_KEY`    | si          | la clave del proveedor |
+   | `LLM_BASE_URL`   | no          | `https://openrouter.ai/api/v1` para OpenRouter. Si no la pones, usa OpenAI |
+   | `LLM_MODEL`      | no          | el slug del modelo. Por defecto `gpt-6.1-sol` |
+   | `LLM_IMAGE_DETAIL` | no        | `auto` (por defecto), `low` o `high` |
+
+   Sirve cualquier proveedor compatible con la API de OpenAI: OpenAI, OpenRouter,
+   Groq, Together. La function ajusta sola el parametro de tokens segun el caso
+   (`max_completion_tokens` en OpenAI, `max_tokens` en el resto).
 
 4. **Deploys → Trigger deploy → Clear cache and deploy site** para que la
    function tome la variable.
@@ -25,7 +31,7 @@ OpenAI del lado del servidor (la API key nunca viaja al navegador).
 1. Subi esta carpeta a un repo.
 2. En Netlify: **Add new site → Import an existing project**.
 3. Build command: vacio. Publish directory: `.`
-4. Agrega `OPENAI_API_KEY` en las variables de entorno.
+4. Agrega `LLM_API_KEY` (y `LLM_BASE_URL` si no usas OpenAI).
 
 El modelo se elige con la variable opcional `OPENAI_MODEL`. Por defecto usa
 `gpt-6.1-sol` (equilibrio entre precision y costo). Alternativas: `gpt-6-astra`
@@ -50,6 +56,13 @@ para una fila suelta.
 | ⚠ Aviso     | Documento extranjero con Tipo doc / N doc sin completar; diferencia de escritura en el apellido; capitalizacion irregular |
 | ? N/D       | Figura en la planilla pero no se escaneo el documento |
 | ✓ OK        | Todo coincide |
+
+## Si una pagina se rechaza
+
+Algunos modelos rechazan una pagina entera por cantidad de tokens de imagen.
+La app lo detecta y reintenta sola con la imagen al 60%, y si hace falta al 40%,
+antes de darla por perdida. Si aun asi falla, baja `LLM_IMAGE_DETAIL` a `low`
+o parti la hoja en dos.
 
 ## Limitaciones que conviene conocer
 
