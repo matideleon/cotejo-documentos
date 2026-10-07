@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cotejo — version simple</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗂️</text></svg>">
+<style>
+:root{
+  --bg:#070d18;--sur:#0d1524;--sur2:#131f32;--brd:#1b2d47;--brd2:#223659;
+  --cyan:#00e5ff;--grn:#00e676;--red:#ff3d57;--amb:#ffab00;
+  --txt:#b8cfe8;--txtD:#3d5472;--txtB:#eaf3ff;
+  --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:100vh;font-size:15px}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(rgba(0,229,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,.02) 1px,transparent 1px);background-size:40px 40px}
+.wrap{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding:0 1.25rem 4rem}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes up{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-thumb{background:var(--brd2);border-radius:3px}
+button,input,select{font-family:inherit}
+input:focus,select:focus{outline:none;border-color:var(--cyan)}
+input[type=file]{display:none}
+
+header{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1.1rem 0 1.3rem;flex-wrap:wrap}
+.logo{display:flex;align-items:center;gap:.7rem}
+.logo-i{width:32px;height:32px;border-radius:7px;background:var(--cyan);color:var(--bg);display:grid;place-items:center;font-family:var(--mono);font-size:.62rem;font-weight:700}
+.logo-t{font-family:var(--mono);font-size:.84rem;font-weight:700;color:var(--txtB);letter-spacing:.03em}
+.logo-s{font-size:.63rem;color:var(--txtD);letter-spacing:.09em;text-transform:uppercase;margin-top:.1rem}
+.ghost{background:transparent;border:1px solid var(--brd);color:var(--txtD);border-radius:7px;padding:.45rem .8rem;font-family:var(--mono);font-size:.63rem;letter-spacing:.05em;text-transform:uppercase;cursor:pointer}
+.ghost:hover{border-color:var(--cyan);color:var(--cyan)}
+
+.cfg{display:none;background:var(--sur);border:1px solid var(--brd);border-radius:11px;padding:1.1rem;margin-bottom:1.3rem;animation:up .2s both}
+.cfg.show{display:block}
+.cfg-g{display:grid;grid-template-columns:2fr 1fr 1fr;gap:.7rem}
+.fld label{display:block;font-family:var(--mono);font-size:.56rem;letter-spacing:.12em;text-transform:uppercase;color:var(--txtD);margin-bottom:.3rem}
+.fld input{width:100%;background:var(--sur2);border:1px solid var(--brd);border-radius:6px;padding:.5rem .65rem;color:var(--txtB);font-size:.8rem;font-family:var(--mono)}
+.hint{font-size:.72rem;color:var(--txtD);line-height:1.6;margin-top:.8rem}
+.hint code{font-family:var(--mono);font-size:.69rem;color:var(--cyan);background:rgba(0,229,255,.07);padding:.1rem .34rem;border-radius:3px}
+
+.pasos{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+.zona{background:var(--sur);border:1px solid var(--brd);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.zona-h{padding:.8rem 1rem;border-bottom:1px solid var(--brd);display:flex;align-items:center;gap:.55rem}
+.zona-n{width:21px;height:21px;border-radius:50%;background:var(--sur2);border:1px solid var(--brd2);display:grid;place-items:center;font-family:var(--mono);font-size:.6rem;font-weight:700;color:var(--txtD);flex-shrink:0}
+.zona.lista .zona-n{background:var(--grn);border-color:var(--grn);color:var(--bg)}
+.zona-t{font-family:var(--mono);font-size:.72rem;font-weight:700;color:var(--txtB)}
+.zona-c{font-family:var(--mono);font-size:.6rem;color:var(--txtD);margin-left:auto}
+.drop{margin:.85rem;border:2px dashed var(--brd2);border-radius:9px;background:var(--sur2);padding:1.5rem 1rem;text-align:center;cursor:pointer;transition:.18s}
+.drop:hover,.drop.over{border-color:var(--cyan);background:rgba(0,229,255,.05)}
+.zona.lista .drop{padding:.7rem 1rem}
+.zona.lista .drop-e{font-size:1rem}
+.zona.lista .drop-t{font-size:.72rem;margin-top:.15rem}
+.zona.lista .drop-s{display:none}
+.drop-e{font-size:1.6rem;line-height:1}
+.drop-t{font-size:.79rem;color:var(--txtB);margin-top:.5rem}
+.drop-s{font-size:.69rem;color:var(--txtD);margin-top:.22rem}
+.minis{display:flex;flex-wrap:wrap;gap:.4rem;padding:0 .85rem .85rem}
+.mini{position:relative;width:58px;height:44px;border-radius:5px;overflow:hidden;border:1px solid var(--brd2);background:var(--sur2)}
+.mini img{width:100%;height:100%;object-fit:cover}
+.mini button{position:absolute;top:2px;right:2px;width:15px;height:15px;border:none;border-radius:50%;background:rgba(255,61,87,.92);color:#fff;font-size:.55rem;cursor:pointer;display:grid;place-items:center;padding:0}
+
+.accion{display:flex;align-items:center;gap:.9rem;margin-top:1.1rem;flex-wrap:wrap}
+.btn{background:var(--cyan);border:none;color:var(--bg);border-radius:9px;padding:.78rem 1.7rem;font-family:var(--mono);font-size:.72rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;box-shadow:0 0 26px rgba(0,229,255,.17)}
+.btn:hover{filter:brightness(1.08)}
+.btn:disabled{opacity:.35;cursor:not-allowed;box-shadow:none}
+.estado{font-size:.76rem;color:var(--txtD);display:flex;align-items:center;gap:.5rem}
+.sp{width:15px;height:15px;border-radius:50%;border:2px solid rgba(255,255,255,.1);border-top-color:var(--cyan);animation:spin .7s linear infinite;flex-shrink:0}
+
+.avisos{margin-top:1.1rem;background:rgba(255,171,0,.07);border:1px solid rgba(255,171,0,.28);border-left-width:3px;border-radius:8px;padding:.8rem 1rem;font-size:.74rem;color:var(--amb);line-height:1.65;display:none}
+.avisos.show{display:block;animation:up .2s both}
+.avisos ul{margin:.35rem 0 0 1.1rem}
+.avisos li{margin-bottom:.2rem}
+
+.res{margin-top:1.6rem;display:none}
+.res.show{display:block;animation:up .25s both}
+.chips{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.9rem}
+.chip{display:flex;align-items:center;gap:.4rem;border-radius:7px;padding:.45rem .85rem;font-size:.73rem;background:var(--sur);border:1px solid var(--brd)}
+.chip b{font-family:var(--mono);font-size:.95rem}
+.chip.ok{color:var(--grn);border-color:rgba(0,230,118,.3);background:rgba(0,230,118,.07)}
+.chip.error{color:var(--red);border-color:rgba(255,61,87,.3);background:rgba(255,61,87,.07)}
+.chip.warn{color:var(--amb);border-color:rgba(255,171,0,.3);background:rgba(255,171,0,.07)}
+.chip.nd{color:var(--txtD)}
+.tabla{background:var(--sur);border:1px solid var(--brd);border-radius:12px;overflow:auto}
+table{width:100%;min-width:880px;border-collapse:collapse;font-size:.79rem}
+th{font-family:var(--mono);font-size:.54rem;letter-spacing:.13em;text-transform:uppercase;color:var(--txtD);text-align:left;padding:.7rem .85rem;background:var(--sur2);border-bottom:1px solid var(--brd);white-space:nowrap;position:sticky;top:0}
+td{padding:.55rem .85rem;border-bottom:1px solid rgba(27,45,71,.45);vertical-align:top}
+tr:last-child td{border-bottom:none}
+tr.f-error{background:rgba(255,61,87,.035)}tr.f-warn{background:rgba(255,171,0,.028)}
+.mono{font-family:var(--mono);font-size:.71rem;color:var(--txtD);white-space:nowrap}
+.ed{color:var(--txtB);border-bottom:1px dashed transparent;padding:.05rem .1rem;border-radius:2px;min-width:1.4rem;display:inline-block}
+.ed:hover{border-bottom-color:var(--brd2)}
+.ed:focus{outline:none;background:rgba(0,229,255,.08);border-bottom-color:var(--cyan)}
+.sx{background:transparent;border:1px solid transparent;border-radius:4px;color:var(--txt);font-family:var(--mono);font-size:.71rem;cursor:pointer;padding:.08rem .2rem}
+.sx:hover{border-color:var(--brd2)}
+.pill{display:inline-block;font-family:var(--mono);font-size:.55rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;padding:.22rem .5rem;border-radius:3px;white-space:nowrap}
+.pill.ok{color:var(--grn);background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.24)}
+.pill.error{color:var(--red);background:rgba(255,61,87,.1);border:1px solid rgba(255,61,87,.26)}
+.pill.warn{color:var(--amb);background:rgba(255,171,0,.1);border:1px solid rgba(255,171,0,.24)}
+.pill.nd{color:var(--txtD);background:rgba(61,84,114,.14);border:1px solid rgba(61,84,114,.26)}
+.obs{font-size:.71rem;line-height:1.5;max-width:330px;color:var(--txtD)}
+.obs.error{color:rgba(255,61,87,.9)}.obs.warn{color:rgba(255,171,0,.9)}
+.pie{display:flex;align-items:center;gap:.55rem;margin-top:.9rem;flex-wrap:wrap}
+.nota{font-size:.71rem;color:var(--txtD);margin-top:.7rem;line-height:1.6}
+.toast{position:fixed;bottom:1.4rem;left:50%;transform:translate(-50%,16px);z-index:99;background:var(--sur2);border:1px solid var(--brd2);border-left:3px solid var(--cyan);border-radius:8px;padding:.65rem 1.1rem;font-size:.77rem;color:var(--txtB);opacity:0;transition:.22s;pointer-events:none;max-width:90vw}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast.err{border-left-color:var(--red)}.toast.ok{border-left-color:var(--grn)}
+@media(max-width:760px){.pasos,.cfg-g{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="logo">
+    <div class="logo-i">DGC</div>
+    <div>
+      <div class="logo-t">Cotejo de documentos</div>
+      <div class="logo-s">Lee las cedulas y las coteja contra la planilla</div>
+    </div>
+  </div>
+  <button class="ghost" id="btnCfg">⚙ Ajustes</button>
+</header>
+
+<div class="cfg" id="cfg">
+  <div class="cfg-g">
+    <div class="fld"><label>API key</label><input id="cKey" type="password" placeholder="sk-... (queda solo en este navegador)" autocomplete="off"></div>
+    <div class="fld"><label>Modelo</label><input id="cModelo" placeholder="gpt-6.1-sol"></div>
+    <div class="fld"><label>Base URL</label><input id="cBase" placeholder="https://api.openai.com/v1"></div>
+  </div>
+  <div class="hint">
+    La clave se guarda en <code>localStorage</code> de esta maquina y se manda solo al proveedor que indiques.
+    Sirve cualquier API compatible con OpenAI (OpenAI, OpenRouter, Groq, Together) y el modelo tiene que ver imagenes.<br>
+    Si dejas la clave vacia y la pagina esta publicada en Netlify, usa <code>/.netlify/functions/analizar</code> y la clave vive en el servidor.
+  </div>
+</div>
+
+<div class="pasos">
+  <div class="zona" id="zDoc">
+    <div class="zona-h"><div class="zona-n">1</div><div class="zona-t">Cedulas / documentos</div><div class="zona-c" id="nDoc">0 pag.</div></div>
+    <input type="file" id="fDoc" accept="image/*,application/pdf,.pdf" multiple>
+    <div class="drop" id="dDoc">
+      <div class="drop-e">🗂️</div>
+      <div class="drop-t">Arrastra las fotos o el PDF</div>
+      <div class="drop-s">Cada hoja puede tener varias cedulas · JPG · PNG · PDF</div>
+    </div>
+    <div class="minis" id="mDoc"></div>
+  </div>
+
+  <div class="zona" id="zPlan">
+    <div class="zona-h"><div class="zona-n">2</div><div class="zona-t">Planilla de registros</div><div class="zona-c" id="nPlan">0 pag.</div></div>
+    <input type="file" id="fPlan" accept="image/*,application/pdf,.pdf" multiple>
+    <div class="drop" id="dPlan">
+      <div class="drop-e">📄</div>
+      <div class="drop-t">Arrastra la planilla</div>
+      <div class="drop-s">Se leen todas las filas de cada hoja · JPG · PNG · PDF</div>
+    </div>
+    <div class="minis" id="mPlan"></div>
+  </div>
+</div>
+
+<div class="accion">
+  <button class="btn" id="btnGo" disabled>Cotejar</button>
+  <div class="estado" id="estado">Carga los documentos y la planilla.</div>
+</div>
+
+<div class="avisos" id="avisos"></div>
+
+<div class="res" id="res">
+  <div class="chips" id="chips"></div>
+  <div class="tabla"><table><thead><tr>
+    <th>#</th><th>Hora</th><th>Cedula</th><th>Nombre</th><th>Apellido</th><th>Sexo</th><th>F. Nac.</th><th>Estado</th><th>Observacion</th>
+  </tr></thead><tbody id="tb"></tbody></table></div>
+  <div class="pie">
+    <button class="ghost" id="btnCsv">↓ Descargar CSV</button>
+    <button class="ghost" id="btnCopy">⎘ Copiar tabla</button>
+    <button class="ghost" id="btnNuevo">⟲ Nuevo cotejo</button>
+  </div>
+  <div class="nota">Los campos en blanco se pueden corregir a mano: al editarlos el cotejo se recalcula solo. Los datos no se guardan, descarga el CSV antes de cerrar.</div>
+</div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="vendor/pdf.min.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   Cotejo de documentos — version simple.
+   Un solo archivo: lee las cedulas y la planilla, extrae los datos con
+   un modelo con vision y los cruza. Sin build, sin dependencias de red
+   (PDF.js viaja en vendor/).
+   ═══════════════════════════════════════════════════════════════════ */
+if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";
+
+var S = { doc:[], plan:[], docs:[], regs:[], filas:[], cargando:0, trabajando:false };
+var CFG = { key:"", modelo:"", base:"" };
+var $ = function(id){ return document.getElementById(id); };
+
+/* ───── configuracion (localStorage) ───── */
+function leerCfg(){
+  try {
+    CFG.key = localStorage.getItem("cotejo.key") || "";
+    CFG.modelo = localStorage.getItem("cotejo.modelo") || "";
+    CFG.base = localStorage.getItem("cotejo.base") || "";
+  } catch(e){}
+  $("cKey").value = CFG.key; $("cModelo").value = CFG.modelo; $("cBase").value = CFG.base;
+}
+function guardarCfg(){
+  CFG.key = $("cKey").value.trim();
+  CFG.modelo = $("cModelo").value.trim();
+  CFG.base = $("cBase").value.trim().replace(/\/+$/, "");
+  try {
+    localStorage.setItem("cotejo.key", CFG.key);
+    localStorage.setItem("cotejo.modelo", CFG.modelo);
+    localStorage.setItem("cotejo.base", CFG.base);
+  } catch(e){}
+}
+
+/* ───── utilidades ───── */
+function esc(s){ return (""+(s==null?"":s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;"); }
+function soloDig(s){ return (""+(s||"")).replace(/\D/g,""); }
+function cap(s){ return s ? s.charAt(0).toUpperCase()+s.slice(1).toLowerCase() : ""; }
+function fmtCI(ci){
+  var n = soloDig(ci);
+  if(n.length < 7) return ci || "—";
+  return n.slice(0,-1).replace(/\B(?=(\d{3})+(?!\d))/g,".") + "-" + n.slice(-1);
+}
+function toast(m, t){
+  var e = $("toast"); e.textContent = m; e.className = "toast show " + (t||"");
+  clearTimeout(window._t); window._t = setTimeout(function(){ e.classList.remove("show"); }, 3400);
+}
+
+/* ───── carga de archivos: imagenes y PDF a dataURL ───── */
+function esPDF(f){ return f.type === "application/pdf" || /\.pdf$/i.test(f.name||""); }
+
+function comprimir(file, maxDim){
+  return new Promise(function(res){
+    var img = new Image(), url = URL.createObjectURL(file);
+    var fallback = function(){
+      URL.revokeObjectURL(url);
+      var fr = new FileReader();
+      fr.onload = function(e){ res(e.target.result); };
+      fr.onerror = function(){ res(null); };
+      fr.readAsDataURL(file);
+    };
+    var t = setTimeout(fallback, 9000);
+    img.onload = function(){
+      clearTimeout(t); URL.revokeObjectURL(url);
+      var w = img.width, h = img.height;
+      if(!w || !h) return fallback();
+      if(w > maxDim || h > maxDim){
+        if(w >= h){ h = Math.round(h*maxDim/w); w = maxDim; } else { w = Math.round(w*maxDim/h); h = maxDim; }
+      }
+      var c = document.createElement("canvas"); c.width = w; c.height = h;
+      var x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0,0,w,h); x.drawImage(img,0,0,w,h);
+      res(c.toDataURL("image/jpeg", 0.82));
+    };
+    img.onerror = function(){ clearTimeout(t); fallback(); };
+    img.src = url;
+  });
+}
+
+// Cada pagina del PDF se convierte a un JPEG aparte: se mandan de a una.
+function pdfAImagenes(file, maxDim){
+  if(!window.pdfjsLib) return Promise.reject(new Error("falta vendor/pdf.min.js para leer PDF"));
+  return file.arrayBuffer()
+    .then(function(buf){ return pdfjsLib.getDocument({ data:new Uint8Array(buf) }).promise; })
+    .then(function(pdf){
+      var pags = [], cadena = Promise.resolve();
+      for(var n = 1; n <= pdf.numPages; n++){
+        cadena = cadena.then(function(num){ return function(){
+          return pdf.getPage(num).then(function(page){
+            var base = page.getViewport({ scale:1 });
+            var k = maxDim / Math.max(base.width, base.height);
+            if(!isFinite(k) || k <= 0) k = 2;
+            var vp = page.getViewport({ scale:Math.min(Math.max(k,1),4) });
+            var c = document.createElement("canvas");
+            c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+            var ctx = c.getContext("2d");
+            ctx.fillStyle = "#fff"; ctx.fillRect(0,0,c.width,c.height);
+            return page.render({ canvasContext:ctx, viewport:vp }).promise.then(function(){
+              pags.push(c.toDataURL("image/jpeg", 0.85));
+            });
+          });
+        };}(n));
+      }
+      return cadena.then(function(){ return pags; });
+    });
+}
+
+function cargar(files, kind){
+  var arr = Array.prototype.slice.call(files).filter(function(f){
+    return esPDF(f) || f.type.indexOf("image/") === 0 || /\.(jpe?g|png|webp|heic|heif)$/i.test(f.name||"");
+  });
+  if(!arr.length){ toast("Solo imagenes o PDF", "err"); return; }
+
+  arr.forEach(function(f){
+    S.cargando++; pintarEstado();
+    var p = esPDF(f) ? pdfAImagenes(f, 2000) : comprimir(f, 1600).then(function(u){ return u ? [u] : []; });
+    p.then(function(pags){
+      if(!pags.length) toast("No se pudo leer " + f.name, "err");
+      S[kind] = S[kind].concat(pags);
+      S.cargando--; pintarZonas(); pintarEstado();
+    }).catch(function(e){
+      S.cargando--; pintarEstado();
+      toast("No se pudo leer " + f.name + ": " + (e.message||e), "err");
+    });
+  });
+}
+
+function pintarZonas(){
+  ["doc","plan"].forEach(function(k){
+    var id = k === "doc" ? "Doc" : "Plan";
+    $("n"+id).textContent = S[k].length + " pag.";
+    $("z"+id).classList.toggle("lista", S[k].length > 0);
+    $("m"+id).innerHTML = S[k].map(function(u,i){
+      return '<div class="mini"><img src="'+u+'"><button data-k="'+k+'" data-i="'+i+'">✕</button></div>';
+    }).join("");
+  });
+}
+
+function pintarEstado(){
+  var e = $("estado"), listo = S.doc.length && S.plan.length;
+  $("btnGo").disabled = S.trabajando || S.cargando > 0 || !listo;
+  if(S.trabajando) return;
+  if(S.cargando > 0){ e.innerHTML = '<span class="sp"></span>Preparando ' + S.cargando + ' archivo(s)...'; return; }
+  if(!S.doc.length && !S.plan.length) e.textContent = "Carga los documentos y la planilla.";
+  else if(!S.doc.length) e.textContent = "Falta cargar las cedulas.";
+  else if(!S.plan.length) e.textContent = "Falta cargar la planilla.";
+  else e.textContent = (S.doc.length + S.plan.length) + " pagina(s) listas — una llamada por pagina.";
+}
+
+/* ───── lectura con el modelo ─────
+   Con API key configurada se llama al proveedor directo desde el navegador.
+   Sin key, se usa la Netlify Function (la clave queda del lado del servidor). */
+var PROMPT = {
+  documento:
+    'Analiza esta imagen. Puede contener una o varias cedulas de identidad uruguayas o documentos extranjeros.\n' +
+    'Para CADA documento responde UNICAMENTE con un JSON array, sin texto ni markdown:\n' +
+    '[{"nombre":"string","apellido":"string","cedula":"solo digitos sin puntos ni guiones","sexo":"M o F","fnac":"YYYY-MM-DD","nacionalidad":"string","vencimiento":"YYYY-MM-DD o vacio si dice Sin Vencimiento"}]\n' +
+    'Si no hay documentos devuelve []. Campos ilegibles: cadena vacia "". SOLO el JSON.',
+  planilla:
+    'Esta imagen contiene una planilla de registros de ingreso a una sala de juegos o casino.\n' +
+    'Extrae TODOS los registros y responde UNICAMENTE con un JSON array, sin texto ni markdown:\n' +
+    '[{"fecha":"YYYY-MM-DD","hora":"HH:MM:SS","cedula":"solo digitos","nombre":"string","apellido":"string","sexo":"M o F","fnac":"YYYY-MM-DD"}]\n' +
+    'Fecha DD/MM/YYYY se convierte a YYYY-MM-DD. Cedula: solo digitos. Campos ilegibles: "". SOLO el JSON.'
+};
+
+function extraerJSON(txt){
+  var limpio = (txt||"").replace(/```json|```/g, "").trim();
+  try { var v = JSON.parse(limpio); if(Array.isArray(v)) return v;
+    for(var k in v) if(Array.isArray(v[k])) return v[k];
+  } catch(e){}
+  var m = limpio.match(/\[[\s\S]*\]/);
+  if(m){ try { return JSON.parse(m[0]); } catch(e){} }
+  return null;
+}
+
+function llamarModelo(dataUrl, tipo){
+  var b64 = dataUrl.split(",")[1];
+  var mt = (dataUrl.split(";")[0]||"").split(":")[1] || "image/jpeg";
+
+  if(!CFG.key){
+    return fetch("/.netlify/functions/analizar", {
+      method:"POST", headers:{ "content-type":"application/json" },
+      body: JSON.stringify({ image:b64, mediaType:mt, tipo:tipo })
+    }).then(leerRespuesta).then(function(d){
+      if(d.error) throw new Error(d.error + (d.detalle ? " — " + d.detalle : ""));
+      return { regs:d.registros || null, crudo:d.crudo || "" };
+    });
+  }
+
+  var base = CFG.base || "https://api.openai.com/v1";
+  var modelo = CFG.modelo || "gpt-6.1-sol";
+  var cuerpo = {
+    model: modelo,
+    messages: [{ role:"user", content:[
+      { type:"text", text:PROMPT[tipo] },
+      { type:"image_url", image_url:{ url:dataUrl } }
+    ]}]
+  };
+  // OpenAI usa max_completion_tokens; el resto de los proveedores, max_tokens.
+  if(base.indexOf("api.openai.com") !== -1) cuerpo.max_completion_tokens = 4000;
+  else cuerpo.max_tokens = 4000;
+
+  return fetch(base + "/chat/completions", {
+    method:"POST",
+    headers:{ "content-type":"application/json", "authorization":"Bearer " + CFG.key },
+    body: JSON.stringify(cuerpo)
+  }).then(leerRespuesta, function(){
+    throw new Error("el navegador no pudo llamar a " + base + " (CORS o red). Serví la pagina con un servidor local o usá la Netlify Function dejando la key vacia.");
+  }).then(function(d){
+    if(d.error) throw new Error((d.error.message || d.error) + "");
+    var txt = (((d.choices||[])[0]||{}).message||{}).content || "";
+    return { regs:extraerJSON(txt), crudo:String(txt).slice(0,220) };
+  });
+}
+
+function leerRespuesta(r){
+  return r.text().then(function(t){
+    var d; try { d = JSON.parse(t); } catch(e){ d = { error:"respuesta no valida (HTTP " + r.status + "): " + t.slice(0,180) }; }
+    if(!r.ok && !d.error) d.error = "HTTP " + r.status + " — " + t.slice(0,180);
+    return d;
+  });
+}
+
+// Una pagina muy densa puede pasarse de tokens o de tiempo: se reintenta
+// una sola vez con la imagen al 60%.
+function reducir(dataUrl){
+  return new Promise(function(res){
+    var img = new Image();
+    img.onload = function(){
+      var w = Math.max(500, Math.round(img.width*0.6)), h = Math.max(500, Math.round(img.height*0.6));
+      var c = document.createElement("canvas"); c.width = w; c.height = h;
+      var x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0,0,w,h); x.drawImage(img,0,0,w,h);
+      res(c.toDataURL("image/jpeg", 0.8));
+    };
+    img.onerror = function(){ res(dataUrl); };
+    img.src = dataUrl;
+  });
+}
+
+function leerPagina(dataUrl, tipo){
+  return llamarModelo(dataUrl, tipo).catch(function(e){
+    return reducir(dataUrl).then(function(chica){ return llamarModelo(chica, tipo); })
+      .catch(function(){ throw e; });
+  });
+}
+
+/* ───── reglas del cotejo ───── */
+// Digito verificador de la cedula uruguaya. Atrapa errores de lectura y
+// tambien numeros inventados por el modelo.
+function ciValida(ci){
+  var n = soloDig(ci);
+  if(n.length < 7 || n.length > 8) return false;
+  while(n.length < 8) n = "0" + n;
+  var coef = [2,9,8,7,6,3,4], suma = 0;
+  for(var i = 0; i < 7; i++) suma += parseInt(n.charAt(i),10) * coef[i];
+  return ((10 - (suma % 10)) % 10) === parseInt(n.charAt(7),10);
+}
+function norm(s){ return (""+(s||"")).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z]/g,""); }
+function capIrregular(s){ return /[a-z][A-Z]/.test(s) && /[A-Z]{2,}/.test(s); }
+function normFecha(v){
+  v = (""+(v||"")).trim();
+  if(/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+  var b = v.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  return b ? b[3]+"-"+("0"+b[2]).slice(-2)+"-"+("0"+b[1]).slice(-2) : "";
+}
+// Distancia de edicion: separa un error de tipeo de un apellido realmente distinto.
+function lev(a,b){
+  if(a === b) return 0;
+  var m = a.length, n = b.length;
+  if(!m) return n; if(!n) return m;
+  var fila = [], i, j;
+  for(j = 0; j <= n; j++) fila[j] = j;
+  for(i = 1; i <= m; i++){
+    var prev = fila[0]; fila[0] = i;
+    for(j = 1; j <= n; j++){
+      var tmp = fila[j];
+      fila[j] = Math.min(fila[j]+1, fila[j-1]+1, prev + (a.charAt(i-1) === b.charAt(j-1) ? 0 : 1));
+      prev = tmp;
+    }
+  }
+  return fila[n];
+}
+// La planilla trae un apellido y la cedula suele traer dos.
+// Devuelve "ok" | "tipeo" | "distinto".
+function compararApellido(apPlan, apDoc){
+  var P = norm(apPlan), D = norm(apDoc);
+  if(!P || !D) return "ok";
+  if(D.indexOf(P) === 0 || P.indexOf(D) === 0) return "ok";
+  var umbral = P.length <= 4 ? 1 : 2;
+  return lev(P, D.slice(0, P.length)) <= umbral ? "tipeo" : "distinto";
+}
+
+function cotejar(docs, plan){
+  var hoy = new Date().toISOString().slice(0,10);
+  var out = [];
+
+  plan.forEach(function(p){
+    var ci = soloDig(p.cedula), doc = null;
+    for(var i = 0; i < docs.length && ci; i++){
+      if(soloDig(docs[i].cedula) === ci){ doc = docs[i]; break; }
+    }
+    var fila = { _p:p, _d:doc, fecha:p.fecha||"", hora:p.hora||"", cedula:ci,
+      nombre:p.nombre||"", apellido:p.apellido||"", sexo:(p.sexo||"").toUpperCase(), fnac:p.fnac||"" };
+
+    if(!doc){ fila.estado = "nd"; fila.obs = "Figura en la planilla pero no se escaneo el documento"; out.push(fila); return; }
+
+    // Una fila puede tener mas de un problema: se juntan todos y manda el mas grave.
+    var h = [];
+    var sD = (doc.sexo||"").toUpperCase(), sP = fila.sexo;
+    var nat = (doc.nacionalidad||"").toUpperCase();
+    var venc = normFecha(doc.vencimiento);
+    var cmp = compararApellido(p.apellido, doc.apellido);
+    var apDoc = (doc.apellido||"").toUpperCase();
+
+    if(ci && !ciValida(ci)) h.push(["error","CEDULA INVALIDA — el digito verificador no cierra"]);
+    if(venc && venc < hoy)  h.push(["error","CEDULA VENCIDA el " + venc + " — no vigente al ingreso"]);
+    if(sD && sP && sD !== sP) h.push(["error","Sexo en planilla: " + sP + " — en documento: " + sD + ". Corregir a " + sD]);
+    if(cmp === "distinto")  h.push(["error","APELLIDO INCORRECTO — la cedula dice " + apDoc]);
+    else if(cmp === "tipeo") h.push(["warn","Apellido mal escrito — la cedula dice " + apDoc]);
+    if(nat && nat.indexOf("URUGUAY") !== 0) h.push(["error","Doc. extranjero (" + doc.nacionalidad + ") — completar Tipo doc y N doc"]);
+    if(capIrregular((p.nombre||"") + " " + (p.apellido||""))) h.push(["warn","Capitalizacion irregular en el nombre"]);
+
+    fila.estado = !h.length ? "ok" : (h.some(function(x){ return x[0] === "error"; }) ? "error" : "warn");
+    fila.obs = h.map(function(x){ return x[1]; }).join(" · ");
+    out.push(fila);
+  });
+
+  // Documento escaneado que no aparece en la planilla: siempre error.
+  docs.forEach(function(d){
+    var ci = soloDig(d.cedula);
+    if(!ci) return;
+    for(var i = 0; i < plan.length; i++) if(soloDig(plan[i].cedula) === ci) return;
+    var nat = (d.nacionalidad||"").toUpperCase();
+    out.push({ _p:null, _d:d, fecha:"", hora:"", cedula:ci, nombre:d.nombre||"", apellido:d.apellido||"",
+      sexo:(d.sexo||"").toUpperCase(), fnac:d.fnac||"", estado:"error",
+      obs:"Documento escaneado NO figura en la planilla" +
+        (nat && nat.indexOf("URUGUAY") !== 0 ? " — Doc. extranjero: " + d.nacionalidad : "") +
+        (ciValida(ci) ? "" : " · CEDULA INVALIDA: el digito verificador no cierra") });
+  });
+
+  var ord = { error:0, warn:1, nd:2, ok:3 };
+  return out.sort(function(a,b){
+    return (ord[a.estado] - ord[b.estado]) || (a.hora||"zz").localeCompare(b.hora||"zz");
+  });
+}
+
+/* ───── corrida ───── */
+function analizar(){
+  guardarCfg();
+  S.trabajando = true; S.docs = []; S.regs = [];
+  $("res").classList.remove("show"); $("avisos").classList.remove("show");
+  pintarEstado();
+
+  var notas = [], total = S.doc.length + S.plan.length, hechas = 0;
+  var tareas = S.doc.map(function(u,i){ return { url:u, tipo:"documento", etq:"documento pag. " + (i+1) }; })
+    .concat(S.plan.map(function(u,i){ return { url:u, tipo:"planilla", etq:"planilla pag. " + (i+1) }; }));
+
+  var cadena = Promise.resolve();
+  tareas.forEach(function(t){
+    cadena = cadena.then(function(){
+      $("estado").innerHTML = '<span class="sp"></span>Leyendo ' + t.etq + ' (' + (hechas+1) + '/' + total + ')...';
+      return leerPagina(t.url, t.tipo).then(function(r){
+        hechas++;
+        if(!Array.isArray(r.regs)) notas.push(t.etq + ": no se pudo interpretar la respuesta" + (r.crudo ? " — dijo: " + r.crudo : ""));
+        else if(!r.regs.length) notas.push(t.etq + ": el modelo no devolvio ningun registro" + (r.crudo ? " — dijo: " + r.crudo : ""));
+        else if(t.tipo === "documento") S.docs = S.docs.concat(r.regs);
+        else S.regs = S.regs.concat(r.regs);
+      }).catch(function(e){
+        hechas++; notas.push(t.etq + ": " + (e.message||e));
+      });
+    });
+  });
+
+  cadena.then(function(){
+    // Si el modelo no ve la imagen suele inventar datos con formato correcto.
+    // Si ninguna cedula pasa el digito verificador, lo decimos fuerte.
+    var cis = S.docs.concat(S.regs).map(function(x){ return soloDig(x.cedula); }).filter(Boolean);
+    if(cis.length && !cis.filter(ciValida).length){
+      notas.unshift("ATENCION: ninguna de las " + cis.length + " cedulas leidas pasa el digito verificador. " +
+        "Es muy probable que el modelo no este viendo las imagenes. Revisa el modelo en Ajustes.");
+    }
+    S.trabajando = false;
+    recotejar();
+    pintarAvisos(notas);
+    pintarEstado();
+    if(S.filas.length) toast("Cotejo listo — " + S.filas.length + " registro(s)", "ok");
+    else toast("No se obtuvo ningun registro", "err");
+  });
+}
+
+function recotejar(){
+  S.filas = cotejar(S.docs, S.regs);
+  pintarResultado();
+}
+
+function pintarAvisos(notas){
+  var a = $("avisos");
+  if(!notas || !notas.length){ a.classList.remove("show"); return; }
+  a.innerHTML = '<strong>Revisar:</strong><ul>' + notas.map(function(n){ return '<li>' + esc(n) + '</li>'; }).join("") + '</ul>';
+  a.classList.add("show");
+}
+
+function pintarResultado(){
+  var c = { ok:0, error:0, warn:0, nd:0 };
+  S.filas.forEach(function(f){ c[f.estado]++; });
+
+  $("chips").innerHTML = [["error","✗ Errores"],["warn","⚠ Avisos"],["nd","? Sin documento"],["ok","✓ OK"]]
+    .map(function(x){ return '<div class="chip ' + x[0] + '"><b>' + c[x[0]] + '</b> ' + x[1] + '</div>'; })
+    .join("") + '<div class="chip"><b>' + S.filas.length + '</b> registros</div>';
+
+  var etq = { ok:"✓ OK", error:"✗ Error", warn:"⚠ Aviso", nd:"? N/D" };
+  $("tb").innerHTML = S.filas.map(function(f,i){
+    var sx = ["", "F", "M"].map(function(v){
+      return '<option value="' + v + '"' + (f.sexo === v ? " selected" : "") + '>' + (v||"—") + '</option>';
+    }).join("");
+    return '<tr class="f-' + f.estado + '">' +
+      '<td class="mono">' + String(i+1).padStart(2,"0") + '</td>' +
+      '<td class="mono">' + esc(f.hora || "—") + '</td>' +
+      '<td class="mono"><span class="ed" contenteditable data-i="' + i + '" data-c="cedula">' + esc(fmtCI(f.cedula)) + '</span></td>' +
+      '<td><span class="ed" contenteditable data-i="' + i + '" data-c="nombre">' + esc(cap(f.nombre)) + '</span></td>' +
+      '<td><span class="ed" contenteditable data-i="' + i + '" data-c="apellido">' + esc(cap(f.apellido)) + '</span></td>' +
+      '<td><select class="sx" data-i="' + i + '" data-c="sexo">' + sx + '</select></td>' +
+      '<td class="mono">' + esc(f.fnac || "—") + '</td>' +
+      '<td><span class="pill ' + f.estado + '">' + etq[f.estado] + '</span></td>' +
+      '<td><div class="obs ' + f.estado + '">' + esc(f.obs || "—") + '</div></td></tr>';
+  }).join("");
+
+  $("res").classList.add("show");
+}
+
+// Una correccion a mano se escribe en el registro de origen (planilla o
+// documento) y el cotejo se vuelve a calcular con el dato corregido.
+function corregir(i, campo, valor){
+  var f = S.filas[i];
+  if(!f) return;
+  var destino = f._p || f._d;
+  if(!destino) return;
+  destino[campo] = campo === "cedula" ? soloDig(valor) : valor.trim();
+  if(campo === "cedula" && f._p && f._d) f._d.cedula = destino[campo];
+  recotejar();
+}
+
+/* ───── salida ───── */
+function tablaCSV(){
+  var h = ["#","Fecha","Hora","Cedula","Nombre","Apellido","Sexo","F.Nacimiento","Estado","Observacion"];
+  var q = function(v){ return '"' + (""+(v==null?"":v)).replace(/"/g,'""') + '"'; };
+  return [h.join(",")].concat(S.filas.map(function(f,i){
+    return [i+1, f.fecha, f.hora, f.cedula, f.nombre, f.apellido, f.sexo, f.fnac,
+      f.estado.toUpperCase(), f.obs].map(q).join(",");
+  })).join("\n");
+}
+
+/* ───── eventos ───── */
+leerCfg();
+$("btnCfg").onclick = function(){ $("cfg").classList.toggle("show"); };
+["cKey","cModelo","cBase"].forEach(function(id){ $(id).addEventListener("change", guardarCfg); });
+
+[["dDoc","fDoc","doc"],["dPlan","fPlan","plan"]].forEach(function(x){
+  var drop = $(x[0]), input = $(x[1]), kind = x[2];
+  drop.onclick = function(){ input.click(); };
+  input.onchange = function(){ cargar(input.files, kind); input.value = ""; };
+  drop.ondragover = function(e){ e.preventDefault(); drop.classList.add("over"); };
+  drop.ondragleave = function(){ drop.classList.remove("over"); };
+  drop.ondrop = function(e){ e.preventDefault(); drop.classList.remove("over"); cargar(e.dataTransfer.files, kind); };
+});
+
+document.addEventListener("click", function(e){
+  var b = e.target.closest ? e.target.closest(".mini button") : null;
+  if(!b) return;
+  S[b.dataset.k].splice(+b.dataset.i, 1);
+  pintarZonas(); pintarEstado();
+});
+
+$("tb").addEventListener("blur", function(e){
+  var el = e.target;
+  if(el.classList && el.classList.contains("ed")) corregir(+el.dataset.i, el.dataset.c, el.textContent);
+}, true);
+$("tb").addEventListener("keydown", function(e){
+  if(e.key === "Enter" && e.target.classList && e.target.classList.contains("ed")){ e.preventDefault(); e.target.blur(); }
+});
+$("tb").addEventListener("change", function(e){
+  if(e.target.classList && e.target.classList.contains("sx")) corregir(+e.target.dataset.i, "sexo", e.target.value);
+});
+
+$("btnGo").onclick = analizar;
+$("btnCsv").onclick = function(){
+  if(!S.filas.length) return toast("Sin registros", "err");
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["﻿" + tablaCSV()], { type:"text/csv;charset=utf-8" }));
+  a.download = "cotejo_" + new Date().toISOString().slice(0,10) + ".csv";
+  a.click(); toast("CSV descargado", "ok");
+};
+$("btnCopy").onclick = function(){
+  var txt = tablaCSV().replace(/","/g, "\t").replace(/^"|"$/gm, "");
+  (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject())
+    .then(function(){ toast("Tabla copiada", "ok"); }, function(){ toast("El navegador no permitio copiar", "err"); });
+};
+$("btnNuevo").onclick = function(){
+  S.doc = []; S.plan = []; S.docs = []; S.regs = []; S.filas = [];
+  $("res").classList.remove("show"); $("avisos").classList.remove("show");
+  pintarZonas(); pintarEstado();
+};
+
+pintarZonas(); pintarEstado();
+</script>
+</body>
+</html>
