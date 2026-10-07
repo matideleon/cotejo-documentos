@@ -1,4 +1,4 @@
-// Netlify Function — analiza una imagen con la API de Anthropic.
+// Netlify Function — analiza una imagen con la API de OpenAI.
 // La API key vive en el servidor (variable de entorno), nunca en el navegador.
 
 const PROMPT_DOC = `Analiza esta imagen. Puede contener una o varias cedulas de identidad uruguayas o documentos extranjeros.
@@ -15,8 +15,13 @@ function extraerJSON(texto) {
   if (!texto) return null;
   const limpio = texto.replace(/```json|```/g, "").trim();
   try { return JSON.parse(limpio); } catch (e) {}
+  // Algunos modelos devuelven el array dentro de un objeto
   const m = limpio.match(/\[[\s\S]*\]/);
   if (m) { try { return JSON.parse(m[0]); } catch (e) {} }
+  try {
+    const obj = JSON.parse(limpio);
+    for (const k of Object.keys(obj)) if (Array.isArray(obj[k])) return obj[k];
+  } catch (e) {}
   return null;
 }
 
@@ -28,9 +33,9 @@ exports.handler = async (event) => {
     return { statusCode: 405, body: JSON.stringify({ error: "Metodo no permitido" }) };
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    return { statusCode: 500, body: JSON.stringify({ error: "Falta configurar ANTHROPIC_API_KEY en las variables de entorno de Netlify." }) };
+    return { statusCode: 500, body: JSON.stringify({ error: "Falta configurar OPENAI_API_KEY en las variables de entorno de Netlify." }) };
   }
 
   let body;
@@ -41,24 +46,24 @@ exports.handler = async (event) => {
   if (!image) return { statusCode: 400, body: JSON.stringify({ error: "Falta la imagen" }) };
 
   const prompt = tipo === "planilla" ? PROMPT_PLAN : PROMPT_DOC;
-  const modelo = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-20250514";
+  const modelo = process.env.OPENAI_MODEL || "gpt-6.1-sol";
+  const dataUrl = "data:" + (mediaType || "image/jpeg") + ";base64," + image;
 
   try {
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
+    const r = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
+        "authorization": "Bearer " + apiKey,
       },
       body: JSON.stringify({
         model: modelo,
-        max_tokens: 4000,
+        max_completion_tokens: 4000,
         messages: [{
           role: "user",
           content: [
-            { type: "image", source: { type: "base64", media_type: mediaType || "image/jpeg", data: image } },
             { type: "text", text: prompt },
+            { type: "image_url", image_url: { url: dataUrl, detail: "high" } },
           ],
         }],
       }),
@@ -70,16 +75,16 @@ exports.handler = async (event) => {
     }
 
     const data = await r.json();
-    const texto = (data.content || []).filter(b => b.type === "text").map(b => b.text).join("");
+    const texto = (((data.choices || [])[0] || {}).message || {}).content || "";
     const registros = extraerJSON(texto);
 
     if (!Array.isArray(registros)) {
-      return { statusCode: 200, body: JSON.stringify({ registros: [], aviso: "No se pudo interpretar la respuesta", crudo: texto.slice(0, 400) }) };
+      return { statusCode: 200, body: JSON.stringify({ registros: [], aviso: "No se pudo interpretar la respuesta", crudo: String(texto).slice(0, 400) }) };
     }
 
     return { statusCode: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({ registros }) };
 
   } catch (err) {
-    return { statusCode: 500, body: JSON.stringify({ error: String(err && err.message || err) }) };
+    return { statusCode: 500, body: JSON.stringify({ error: String((err && err.message) || err) }) };
   }
 };

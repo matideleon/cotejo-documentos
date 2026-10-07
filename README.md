@@ -2,7 +2,7 @@
 
 App web para cotejar documentos de identidad contra la planilla de registros.
 Hosting en Netlify, con una Netlify Function que hace las llamadas a la API de
-Anthropic del lado del servidor (la API key nunca viaja al navegador).
+OpenAI del lado del servidor (la API key nunca viaja al navegador).
 
 ## Como desplegarlo
 
@@ -13,9 +13,9 @@ Anthropic del lado del servidor (la API key nunca viaja al navegador).
 3. Una vez creado el sitio, anda a **Site configuration → Environment variables**
    y agrega:
 
-   | Variable            | Valor                      |
-   |---------------------|----------------------------|
-   | `ANTHROPIC_API_KEY` | tu clave `sk-ant-...`      |
+   | Variable          | Valor             |
+   |-------------------|-------------------|
+   | `OPENAI_API_KEY` | tu clave `sk-...`        |
 
 4. **Deploys → Trigger deploy → Clear cache and deploy site** para que la
    function tome la variable.
@@ -25,7 +25,11 @@ Anthropic del lado del servidor (la API key nunca viaja al navegador).
 1. Subi esta carpeta a un repo.
 2. En Netlify: **Add new site → Import an existing project**.
 3. Build command: vacio. Publish directory: `.`
-4. Agrega `ANTHROPIC_API_KEY` en las variables de entorno.
+4. Agrega `OPENAI_API_KEY` en las variables de entorno.
+
+El modelo se elige con la variable opcional `OPENAI_MODEL`. Por defecto usa
+`gpt-6.1-sol` (equilibrio entre precision y costo). Alternativas: `gpt-6-astra`
+si queres maxima precision, o `gpt-6-luna` si te importa mas el costo por pagina.
 
 ## Como se usa
 
@@ -75,7 +79,7 @@ para una fila suelta.
 ├── index.html                      frontend completo
 ├── vendor/                         PDF.js (local, sin CDN)
 ├── netlify.toml                    configuracion de Netlify
-├── netlify/functions/analizar.js   function que llama a la API
+├── netlify/functions/analizar.js   function que llama a la API de OpenAI
 └── README.md
 ```
 
