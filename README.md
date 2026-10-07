@@ -1,4 +1,4 @@
-# Sistema de Cotejo — DGC
+# Sistema de Cotejo
 
 App web para cotejar documentos de identidad contra la planilla de registros.
 Hosting en Netlify, con una Netlify Function que hace las llamadas a la API de
