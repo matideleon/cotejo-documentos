@@ -47,7 +47,8 @@ exports.handler = async (event) => {
   const { image, mediaType, tipo } = body;
   if (!image) return { statusCode: 400, body: JSON.stringify({ error: "Falta la imagen" }) };
 
-  const prompt = tipo === "planilla" ? PROMPT_PLAN : PROMPT_DOC;
+  const PROMPT_PRUEBA = "Responde en una sola frase: que ves en esta imagen? Si no recibiste ninguna imagen, responde exactamente: NO RECIBI IMAGEN.";
+  const prompt = tipo === "prueba" ? PROMPT_PRUEBA : (tipo === "planilla" ? PROMPT_PLAN : PROMPT_DOC);
   const modelo = process.env.LLM_MODEL || process.env.OPENAI_MODEL || "gpt-6.1-sol";
   const baseUrl = (process.env.LLM_BASE_URL || process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/, "");
   const esOpenAI = baseUrl.indexOf("api.openai.com") !== -1;
@@ -91,6 +92,12 @@ exports.handler = async (event) => {
 
     const data = await r.json();
     const texto = (((data.choices || [])[0] || {}).message || {}).content || "";
+
+    if (tipo === "prueba") {
+      return { statusCode: 200, headers: { "content-type": "application/json" },
+        body: JSON.stringify({ modelo: modelo, baseUrl: baseUrl, respuesta: String(texto).slice(0, 400) }) };
+    }
+
     const registros = extraerJSON(texto);
 
     if (!Array.isArray(registros)) {

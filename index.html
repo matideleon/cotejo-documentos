@@ -293,7 +293,11 @@ function renderCotejo(){
       '<div style="font-size:.78rem;color:var(--txtD);margin-bottom:1rem;line-height:1.6">Carga las <strong style="color:var(--txtB)">cedulas</strong> como fotos o como PDF escaneado. Cada pagina puede tener varios documentos.</div>'+
       '<input type="file" accept="image/*,application/pdf,.pdf" multiple id="docInput">'+
       '<div class="drop" id="docDrop"><div style="font-size:2rem">🗂️</div><div class="drop-t">Cedulas / documentos — imagen o PDF</div><div class="drop-s">Fotos o PDF escaneado — detecta todos los documentos de cada pagina</div><div class="drop-tag">JPG · PNG · PDF · varios archivos</div></div>'+
-      '<div class="prev" id="docPrev"></div>';
+      '<div class="prev" id="docPrev"></div>'+
+      '<div style="margin-top:.9rem;padding-top:.8rem;border-top:1px solid var(--brd)">'+
+        '<button class="btn-sec" style="width:auto;padding:.45rem .9rem" onclick="probarModelo()">🔎 Probar que el modelo ve la imagen</button>'+
+        '<div id="pruebaOut" style="margin-top:.6rem;font-size:.72rem;color:var(--txtD);line-height:1.5;white-space:pre-wrap"></div>'+
+      '</div>';
     document.getElementById("docInput").addEventListener("change", function(e){ addImgs(e.target.files,"doc"); e.target.value=""; });
     document.getElementById("docDrop").addEventListener("click", function(){ document.getElementById("docInput").click(); });
     setupDrop("docDrop","doc"); renderPrev("doc");
@@ -510,6 +514,33 @@ function analizar(){
     ses.resultados = cotejar(docs, plan);
     if(notas.length) ses.err = notas.join(" · ");
     ses.paso=3; renderCotejo();
+  });
+}
+
+// Manda la primera pagina cargada y pide una descripcion libre.
+// Sirve para saber si el modelo realmente esta recibiendo la imagen.
+function probarModelo(){
+  var out = document.getElementById("pruebaOut");
+  var url = ses.docUrls[0] || ses.planUrls[0];
+  if(!url){ out.textContent = "Carga primero una imagen o PDF."; return; }
+  out.textContent = "Consultando al modelo...";
+  var b64 = url.split(",")[1];
+  var mt = (url.split(";")[0]||"").split(":")[1] || "image/jpeg";
+  fetch("/.netlify/functions/analizar", {
+    method:"POST", headers:{"content-type":"application/json"},
+    body: JSON.stringify({ image:b64, mediaType:mt, tipo:"prueba" })
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if(d.error){ out.innerHTML = '<span style="color:var(--red)">Error: '+esc(d.error)+(d.detalle?" — "+esc(d.detalle):"")+'</span>'; return; }
+    var r = d.respuesta || "(sin respuesta)";
+    var ciego = /NO RECIBI IMAGEN/i.test(r);
+    out.innerHTML =
+      '<div style="color:var(--txtD)">modelo: <strong style="color:var(--txtB)">'+esc(d.modelo)+'</strong>  ·  '+esc(d.baseUrl)+'</div>'+
+      '<div style="margin-top:.4rem;color:'+(ciego?"var(--red)":"var(--grn)")+'">'+
+        (ciego ? "El modelo NO esta recibiendo la imagen. Cambia LLM_MODEL por uno con vision."
+               : "El modelo si ve la imagen.")+'</div>'+
+      '<div style="margin-top:.4rem;color:var(--txt)">Respondio: '+esc(r)+'</div>';
+  }).catch(function(e){
+    out.innerHTML = '<span style="color:var(--red)">Fallo la consulta: '+esc(e.message)+'</span>';
   });
 }
 
