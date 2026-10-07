@@ -445,7 +445,11 @@ function pedirAnalisis(dataUrl, tipo){
         err.crudo = (d.detalle||"").slice(0,300);
         throw err;
       }
-      return d.registros || [];
+      var regs = d.registros || [];
+      // El modelo respondio pero no se pudo leer como JSON: guardamos lo que dijo
+      // para poder mostrarlo, en vez de devolver una lista vacia sin explicacion.
+      if(d.aviso) regs.aviso = d.aviso + (d.crudo ? " — respondio: " + d.crudo : "");
+      return regs;
     }, function(){
       var e2 = new Error("Respuesta no valida del servidor.");
       e2.reintentable = true; throw e2;
@@ -474,6 +478,11 @@ function analizar(){
   if(!ses.docUrls.length && !ses.planUrls.length){ toast("No hay paginas para analizar","error"); return; }
   ses.paso="proc"; ses.err=""; renderCotejo();
   var docs=[], plan=[], total=ses.docUrls.length+ses.planUrls.length, hechas=0;
+  var notas=[];
+  var anotar=function(etq, rs){
+    if(rs && rs.aviso) notas.push(etq+": "+rs.aviso);
+    else if(rs && rs.length===0) notas.push(etq+": el modelo no devolvio ningun registro");
+  };
   var prog=function(){ hechas++; var b=document.getElementById("barF"); if(b) b.style.width=Math.round(hechas/Math.max(total,1)*100)+"%"; };
   var msg=function(t){ var e=document.getElementById("procMsg"); if(e) e.textContent=t; };
 
@@ -481,20 +490,25 @@ function analizar(){
   ses.docUrls.forEach(function(u,i){
     cadena = cadena.then(function(){
       msg("Leyendo documentos — imagen "+(i+1)+"/"+ses.docUrls.length);
-      return analizarImagen(u,"documento").then(function(rs){ docs=docs.concat(rs); prog(); })
-        .catch(function(e){ ses.err=e.message; prog(); });
+      return analizarImagen(u,"documento").then(function(rs){
+          anotar("documento pagina "+(i+1), rs); docs=docs.concat(rs); prog();
+        })
+        .catch(function(e){ notas.push("documento pagina "+(i+1)+": "+e.message+(e.crudo?" — "+e.crudo:"")); prog(); });
     });
   });
   ses.planUrls.forEach(function(u,i){
     cadena = cadena.then(function(){
       msg("Leyendo planilla — pagina "+(i+1)+"/"+ses.planUrls.length);
-      return analizarImagen(u,"planilla").then(function(rs){ plan=plan.concat(rs); prog(); })
-        .catch(function(e){ ses.err=e.message; prog(); });
+      return analizarImagen(u,"planilla").then(function(rs){
+          anotar("planilla pagina "+(i+1), rs); plan=plan.concat(rs); prog();
+        })
+        .catch(function(e){ notas.push("planilla pagina "+(i+1)+": "+e.message+(e.crudo?" — "+e.crudo:"")); prog(); });
     });
   });
   cadena.then(function(){
     msg("Cotejando...");
     ses.resultados = cotejar(docs, plan);
+    if(notas.length) ses.err = notas.join(" · ");
     ses.paso=3; renderCotejo();
   });
 }
