@@ -1,2964 +1,747 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Cotejo de Documentos</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema de Cotejo — DGC</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗂️</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:opsz,wght@9..40,300;400;500;600&display=swap" rel="stylesheet" onerror="this.remove()">
 <style>
-/* Layout: barra de estado fija arriba, dos tarjetas de carga, mapeo de columnas,
-   tablero de contadores, tabla filtrable de conciliacion y panel lateral de evidencia. */
 :root{
-  --bg:#F3F5F8; --surface:#FFFFFF; --surface-2:#E9ECF2; --surface-3:#DFE4EC;
-  --line:#D3D9E3; --line-soft:#E4E8EF;
-  --fg:#171A21; --fg-dim:#5A6276; --fg-faint:#8A93A6;
-  --accent:#2B4C7E; --accent-ink:#1E3659; --accent-soft:#E2E9F4;
-  --ok:#136B45; --ok-soft:#DFF0E7;
-  --warn:#8E5400; --warn-soft:#FBEEDA;
-  --bad:#A91F17; --bad-soft:#FBE5E3;
-  --mute:#60677A; --mute-soft:#E7EAF0;
-  --radius:10px; --radius-sm:6px;
-  --shadow:0 1px 2px rgba(23,26,33,.06), 0 8px 24px -12px rgba(23,26,33,.18);
-  --font-ui:"IBM Plex Sans","Segoe UI",system-ui,-apple-system,sans-serif;
-  --font-cond:"IBM Plex Sans Condensed","IBM Plex Sans","Segoe UI",system-ui,sans-serif;
-  --font-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  color-scheme:light;
+  --bg:#070d18;--sur:#0d1524;--sur2:#131f32;--brd:#1b2d47;--brd2:#223659;
+  --cyan:#00e5ff;--grn:#00e676;--red:#ff3d57;--amb:#ffab00;
+  --txt:#b8cfe8;--txtD:#3d5472;--txtB:#eaf3ff;
+  --mono:'Space Mono',ui-monospace,'SF Mono',Menlo,monospace;--sans:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
 }
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --bg:#12151A; --surface:#1A1E25; --surface-2:#222731; --surface-3:#2B313D;
-    --line:#333A47; --line-soft:#272D38;
-    --fg:#E8EBF1; --fg-dim:#9BA4B5; --fg-faint:#78818F;
-    --accent:#8FB3E8; --accent-ink:#B9CDEE; --accent-soft:#1F2B3E;
-    --ok:#56C492; --ok-soft:#142A21;
-    --warn:#E0A648; --warn-soft:#2C2214;
-    --bad:#F28A80; --bad-soft:#2E1815;
-    --mute:#9BA4B5; --mute-soft:#242A34;
-    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
-    color-scheme:dark;
-  }
-}
-:root[data-theme="dark"]{
-  --bg:#12151A; --surface:#1A1E25; --surface-2:#222731; --surface-3:#2B313D;
-  --line:#333A47; --line-soft:#272D38;
-  --fg:#E8EBF1; --fg-dim:#9BA4B5; --fg-faint:#78818F;
-  --accent:#8FB3E8; --accent-ink:#B9CDEE; --accent-soft:#1F2B3E;
-  --ok:#56C492; --ok-soft:#142A21;
-  --warn:#E0A648; --warn-soft:#2C2214;
-  --bad:#F28A80; --bad-soft:#2E1815;
-  --mute:#9BA4B5; --mute-soft:#242A34;
-  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.7);
-  color-scheme:dark;
-}
-*{box-sizing:border-box}
-html,body{margin:0}
-body{
-  background:var(--bg); color:var(--fg);
-  font:400 15px/1.5 var(--font-ui);
-  -webkit-font-smoothing:antialiased;
-  padding-top:env(safe-area-inset-top,0px);
-  padding-bottom:env(safe-area-inset-bottom,0px);
-}
-img{max-width:100%}
-[hidden]{display:none!important}
-button,input,select,textarea{font:inherit;color:inherit}
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-h1,h2,h3{text-wrap:balance;margin:0}
-.tnum{font-variant-numeric:tabular-nums}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--sans);background:var(--bg);color:var(--txt);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(rgba(0,229,255,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,.022) 1px,transparent 1px);background-size:40px 40px}
+.app{position:relative;z-index:1;display:flex;flex-direction:column;height:100vh}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+::-webkit-scrollbar{width:5px;height:5px}::-webkit-scrollbar-track{background:var(--sur2)}::-webkit-scrollbar-thumb{background:var(--brd2);border-radius:3px}
+input,select,button,textarea{font-family:var(--sans)}
+input:focus,select:focus,textarea:focus{border-color:var(--cyan)!important;outline:none}
+input[type=file]{display:none}
 
-/* ---------- barra superior ---------- */
-.topbar{
-  position:sticky; top:env(safe-area-inset-top,0px); z-index:40;
-  background:color-mix(in srgb, var(--surface) 88%, transparent);
-  backdrop-filter:blur(10px);
-  border-bottom:1px solid var(--line);
-}
-.topbar-in{
-  max-width:1180px; margin:0 auto; padding-block:10px;
-  display:flex; align-items:center; gap:14px; flex-wrap:wrap;
-}
-.brand{display:flex;align-items:center;gap:10px;min-width:0}
-.sigil{
-  width:30px;height:30px;flex:none;border-radius:7px;
-  background:var(--accent); color:var(--surface);
-  display:grid;place-items:center;
-  font:700 13px/1 var(--font-cond); letter-spacing:.04em;
-}
-.brand b{font:600 15.5px/1.1 var(--font-ui);letter-spacing:-.01em;display:block}
-.brand span{font:500 11px/1.3 var(--font-cond);letter-spacing:.1em;text-transform:uppercase;color:var(--fg-faint)}
-.topbar-actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:.85rem 1.5rem;border-bottom:1px solid var(--brd);background:rgba(7,13,24,.96);flex-shrink:0}
+.logo{display:flex;align-items:center;gap:.7rem}
+.logo-icon{width:30px;height:30px;background:var(--cyan);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:.62rem;font-weight:700;color:var(--bg)}
+.logo-t{font-family:var(--mono);font-size:.76rem;font-weight:700;color:var(--txtB);letter-spacing:.05em}
+.logo-s{font-size:.58rem;color:var(--txtD);letter-spacing:.1em;text-transform:uppercase}
+.live{display:flex;align-items:center;gap:.4rem;font-family:var(--mono);font-size:.57rem;color:var(--grn);letter-spacing:.1em;text-transform:uppercase}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--grn);animation:pulse 2s infinite}
 
-/* ---------- controles ---------- */
-.btn{
-  display:inline-flex;align-items:center;gap:7px;
-  padding:8px 13px;border-radius:var(--radius-sm);
-  border:1px solid var(--line); background:var(--surface);
-  font:500 13.5px/1 var(--font-ui); cursor:pointer;
-  transition:background .14s, border-color .14s, transform .08s;
-}
-.btn:hover:not(:disabled){background:var(--surface-2);border-color:var(--fg-faint)}
-.btn:active:not(:disabled){transform:translateY(1px)}
-.btn:disabled{opacity:.45;cursor:not-allowed}
-.btn-primary{background:var(--accent);border-color:var(--accent);color:#fff}
-:root[data-theme="dark"] .btn-primary{color:#10151D}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .btn-primary{color:#10151D}}
-.btn-primary:hover:not(:disabled){background:var(--accent-ink);border-color:var(--accent-ink)}
-.btn-sm{padding:5px 9px;font-size:12.5px}
-.icon{width:15px;height:15px;flex:none;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.main{display:grid;grid-template-columns:280px 1fr;flex:1;overflow:hidden}
+.side{border-right:1px solid var(--brd);padding:1.2rem .9rem;display:flex;flex-direction:column;gap:1rem;background:var(--sur);overflow-y:auto}
+.pt{font-family:var(--mono);font-size:.57rem;letter-spacing:.2em;text-transform:uppercase;color:var(--txtD);margin-bottom:.5rem;display:flex;align-items:center;gap:.4rem}
+.pt::before{content:'';width:9px;height:1px;background:var(--cyan)}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:.4rem}
+.stat{background:var(--sur2);border:1px solid var(--brd);border-radius:6px;padding:.6rem;text-align:center;position:relative;overflow:hidden}
+.stat::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px}
+.stat.t::after{background:var(--cyan)}.stat.o::after{background:var(--grn)}.stat.e::after{background:var(--red)}.stat.w::after{background:var(--amb)}
+.stat-n{font-family:var(--mono);font-size:1.4rem;font-weight:700;line-height:1}
+.stat.t .stat-n{color:var(--cyan)}.stat.o .stat-n{color:var(--grn)}.stat.e .stat-n{color:var(--red)}.stat.w .stat-n{color:var(--amb)}
+.stat-l{font-size:.57rem;color:var(--txtD);text-transform:uppercase;letter-spacing:.08em;margin-top:.12rem}
+.sw{position:relative}
+.si{width:100%;background:var(--sur2);border:1px solid var(--brd);border-radius:6px;padding:.5rem .7rem .5rem 1.9rem;font-size:.74rem;color:var(--txtB)}
+.sicon{position:absolute;left:.6rem;top:50%;transform:translateY(-50%);color:var(--txtD);font-size:.78rem}
+.filters{display:flex;flex-direction:column;gap:.28rem}
+.fb{display:flex;align-items:center;justify-content:space-between;padding:.42rem .65rem;border-radius:5px;border:1px solid var(--brd);background:transparent;cursor:pointer;font-size:.72rem;color:var(--txt);text-align:left}
+.fb:hover{background:var(--sur2)}
+.fc{font-family:var(--mono);font-size:.58rem;background:rgba(255,255,255,.06);padding:.08rem .38rem;border-radius:10px}
+.btn-main{display:flex;align-items:center;justify-content:center;gap:.5rem;width:100%;padding:.7rem;background:var(--cyan);color:var(--bg);border:none;border-radius:7px;font-family:var(--mono);font-size:.66rem;font-weight:700;letter-spacing:.04em;cursor:pointer;text-transform:uppercase;box-shadow:0 0 20px rgba(0,229,255,.2)}
+.btn-main:hover{opacity:.92}
+.btn-sec{display:flex;align-items:center;justify-content:center;gap:.4rem;width:100%;padding:.5rem;background:transparent;color:var(--txtD);border:1px solid var(--brd);border-radius:6px;font-family:var(--mono);font-size:.6rem;letter-spacing:.04em;cursor:pointer;text-transform:uppercase}
+.btn-sec:hover{border-color:var(--cyan);color:var(--cyan)}
 
-/* ---------- estructura ---------- */
-.wrap{max-width:1180px;margin:0 auto;padding-block:22px 64px}
-body,.topbar-in,.wrap{padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px))}
-body{padding-left:0;padding-right:0}
-.lede{max-width:62ch;margin-bottom:20px}
-.lede h1{font:600 26px/1.2 var(--font-ui);letter-spacing:-.02em;margin-bottom:6px}
-.lede p{margin:0;color:var(--fg-dim);font-size:14.5px}
+.content{display:flex;flex-direction:column;overflow:hidden}
+.ch{padding:.9rem 1.2rem;border-bottom:1px solid var(--brd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.ct{font-family:var(--mono);font-size:.82rem;font-weight:700;color:var(--txtB)}
+.cs{font-size:.67rem;color:var(--txtD);margin-top:.1rem}
+.tscroll{overflow:auto;flex:1}
+table{width:100%;border-collapse:collapse;font-size:.75rem}
+thead th{font-family:var(--mono);font-size:.53rem;letter-spacing:.12em;text-transform:uppercase;color:var(--txtD);padding:.68rem .9rem;text-align:left;background:var(--sur);border-bottom:1px solid var(--brd);position:sticky;top:0;white-space:nowrap;cursor:pointer;user-select:none}
+thead th:hover{color:var(--cyan)}
+tbody tr{border-bottom:1px solid rgba(27,45,71,.4);animation:fadeUp .25s ease both}
+tbody tr:hover{background:rgba(255,255,255,.018)}
+tbody tr.r-error{background:rgba(255,61,87,.04)}tbody tr.r-warn{background:rgba(255,171,0,.03)}
+td{padding:.58rem .9rem;vertical-align:middle}
+td.mono{font-family:var(--mono);font-size:.66rem;color:var(--txtD)}
+td.nm strong{display:block;color:var(--txtB);font-weight:500;font-size:.76rem}
+td.nm span{font-size:.6rem;color:var(--txtD)}
+.pill{display:inline-flex;font-family:var(--mono);font-size:.54rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:.2rem .55rem;border-radius:3px;white-space:nowrap}
+.p-ok{color:var(--grn);background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.22)}
+.p-error{color:var(--red);background:rgba(255,61,87,.1);border:1px solid rgba(255,61,87,.25)}
+.p-warn{color:var(--amb);background:rgba(255,171,0,.1);border:1px solid rgba(255,171,0,.22)}
+.p-nd{color:var(--txtD);background:rgba(61,84,114,.12);border:1px solid rgba(61,84,114,.22)}
+.obs{font-size:.67rem;color:var(--txtD);max-width:240px;line-height:1.4}
+.obs.o-error{color:rgba(255,61,87,.85)}.obs.o-warn{color:rgba(255,171,0,.85)}
+.racts{display:flex;gap:.3rem;opacity:0;transition:opacity .15s}
+tr:hover .racts{opacity:1}
+.rab{width:22px;height:22px;border-radius:4px;border:1px solid var(--brd);background:var(--sur2);color:var(--txtD);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.65rem}
+.rab:hover{border-color:var(--cyan);color:var(--cyan)}.rab.del:hover{border-color:var(--red);color:var(--red)}
+.empty{display:none;flex-direction:column;align-items:center;justify-content:center;padding:4rem 2rem;gap:.75rem;color:var(--txtD)}
+.empty.show{display:flex}.empty-icon{font-size:2rem;opacity:.3}.empty-text{font-size:.76rem;text-align:center;line-height:1.7}
 
-.card{
-  background:var(--surface);border:1px solid var(--line);
-  border-radius:var(--radius);
-}
-.card-h{
-  display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
-  padding:13px 16px;border-bottom:1px solid var(--line-soft);
-}
-.card-h h2{font:600 14.5px/1.2 var(--font-ui)}
-.step{
-  font:600 10.5px/1 var(--font-cond);letter-spacing:.12em;text-transform:uppercase;
-  color:var(--fg-faint);
-}
-.card-b{padding:16px}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(6px);z-index:200;display:none;align-items:center;justify-content:center;padding:1rem}
+.ov.show{display:flex}
+.modal{background:var(--sur);border:1px solid var(--brd2);border-radius:14px;width:100%;max-width:860px;max-height:92vh;display:flex;flex-direction:column;animation:fadeUp .2s ease;box-shadow:0 24px 64px rgba(0,0,0,.5)}
+.mh{padding:1.2rem 1.5rem .9rem;border-bottom:1px solid var(--brd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.mt{font-family:var(--mono);font-size:.8rem;font-weight:700;color:var(--txtB)}
+.mc{background:none;border:none;color:var(--txtD);cursor:pointer;font-size:.95rem}
+.steps{display:flex;align-items:center;padding:.9rem 1.5rem;border-bottom:1px solid var(--brd);gap:.5rem;flex-shrink:0}
+.stp{display:flex;align-items:center;gap:.5rem;flex:1}
+.stp-n{width:24px;height:24px;border-radius:50%;border:2px solid var(--txtD);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:.6rem;font-weight:700;color:var(--txtD);flex-shrink:0;transition:all .3s}
+.stp.active .stp-n{background:var(--cyan);border-color:var(--cyan);color:var(--bg)}
+.stp.done .stp-n{background:var(--grn);border-color:var(--grn);color:var(--bg)}
+.stp-l{font-size:.68rem;color:var(--txtD)}
+.stp.active .stp-l{color:var(--cyan);font-weight:600}.stp.done .stp-l{color:var(--grn)}
+.stp-line{flex:1;height:1px;background:var(--brd);margin:0 .25rem}
+.stp.done .stp-line{background:var(--grn)}
+.mb{padding:1.2rem 1.5rem;overflow-y:auto;flex:1}
+.mf{padding:.9rem 1.5rem;border-top:1px solid var(--brd);display:flex;gap:.55rem;justify-content:space-between;align-items:center;flex-shrink:0;flex-wrap:wrap}
+.btn-c{padding:.52rem 1rem;background:transparent;border:1px solid var(--brd);color:var(--txtD);border-radius:5px;font-family:var(--mono);font-size:.66rem;cursor:pointer}
+.btn-p{padding:.52rem 1.25rem;background:var(--cyan);border:none;color:var(--bg);border-radius:5px;font-family:var(--mono);font-size:.66rem;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
 
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media (max-width:820px){.grid-2{grid-template-columns:1fr}}
-
-/* ---------- drop zones ---------- */
-.drop{
-  border:1.5px dashed var(--line); border-radius:var(--radius-sm);
-  padding:22px 16px; text-align:center; cursor:pointer;
-  background:var(--surface-2); transition:border-color .15s, background .15s;
-}
-.drop:hover,.drop.over{border-color:var(--accent);background:var(--accent-soft)}
-.drop svg{width:22px;height:22px;stroke:var(--accent);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;margin-bottom:6px}
-.drop b{display:block;font:600 14px/1.3 var(--font-ui)}
-.drop small{display:block;color:var(--fg-dim);font-size:12.5px;margin-top:3px}
-.drop-extra{display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap}
-
-/* ---------- mapeo ---------- */
-.maprow{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
-.field label{display:block;font:600 10.5px/1 var(--font-cond);letter-spacing:.1em;text-transform:uppercase;color:var(--fg-dim);margin-bottom:5px}
-.field select,.field input{
-  width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:var(--radius-sm);
-  background:var(--surface);font-size:13.5px;
-}
-.hint{font-size:12.5px;color:var(--fg-dim);margin:10px 0 0}
-
-/* ---------- tabla previa ---------- */
-.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
-table{border-collapse:collapse;width:100%;font-size:13.5px}
-th{
-  text-align:left;font:600 10.5px/1.1 var(--font-cond);letter-spacing:.09em;text-transform:uppercase;
-  color:var(--fg-dim);padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;
-  background:var(--surface);position:sticky;top:0;
-}
-td{padding:9px 10px;border-bottom:1px solid var(--line-soft);vertical-align:top}
-tbody tr:hover{background:var(--surface-2)}
-.mono{font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums}
-td.mono,td .mono{white-space:nowrap}
-
-/* ---------- pills ---------- */
-.pill{
-  display:inline-flex;align-items:center;gap:5px;white-space:nowrap;
-  padding:2.5px 8px;border-radius:99px;
-  font:600 11.5px/1.4 var(--font-ui);
-}
-.pill::before{content:"";width:6px;height:6px;border-radius:99px;background:currentColor;flex:none}
-.p-ok{background:var(--ok-soft);color:var(--ok)}
-.p-warn{background:var(--warn-soft);color:var(--warn)}
-.p-bad{background:var(--bad-soft);color:var(--bad)}
-.p-mute{background:var(--mute-soft);color:var(--mute)}
-.p-info{background:var(--accent-soft);color:var(--accent-ink)}
-:root[data-theme="dark"] .p-info{color:var(--accent)}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .p-info{color:var(--accent)}}
-.flag{display:inline-block;margin:1px 4px 1px 0}
-
-/* ---------- barra de accion ---------- */
-.runbar{
-  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
-  padding:14px 16px;border-radius:var(--radius);
-  background:var(--surface);border:1px solid var(--line);
-  box-shadow:var(--shadow);
-}
-.runbar .sum{font-size:13.5px;color:var(--fg-dim);min-width:0}
-.runbar .sum b{color:var(--fg);font-weight:600}
-
-/* ---------- progreso ---------- */
-.bar{height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden}
-.bar i{display:block;height:100%;background:var(--accent);transition:width .25s ease;border-radius:99px}
-.qlist{max-height:190px;overflow:auto;margin-top:12px;border-top:1px solid var(--line-soft)}
-.qitem{display:flex;gap:9px;align-items:center;padding:6px 2px;border-bottom:1px solid var(--line-soft);font-size:13px}
-.qitem .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.spin{width:12px;height:12px;border-radius:99px;border:2px solid var(--line);border-top-color:var(--accent);animation:sp .7s linear infinite;flex:none}
-@keyframes sp{to{transform:rotate(360deg)}}
-@media (prefers-reduced-motion:reduce){.spin{animation-duration:2s}.bar i{transition:none}}
-
-/* ---------- tablero ---------- */
-.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:10px}
-@media (max-width:420px){.tiles{grid-template-columns:repeat(2,1fr)}}
-.tile{
-  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
-  padding:12px 13px;cursor:pointer;text-align:left;
-  border-left:3px solid var(--mute);transition:background .14s,transform .08s;
-}
-.tile:hover{background:var(--surface-2)}
-.tile:active{transform:translateY(1px)}
-.tile[aria-pressed="true"]{background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--fg-faint)}
-.tile .n{font:600 25px/1 var(--font-ui);font-variant-numeric:tabular-nums;letter-spacing:-.02em;display:block}
-.tile .k{font:600 10.5px/1.25 var(--font-cond);letter-spacing:.08em;text-transform:uppercase;color:var(--fg-dim);display:block;margin-top:5px}
-.t-ok{border-left-color:var(--ok)} .t-ok .n{color:var(--ok)}
-.t-warn{border-left-color:var(--warn)} .t-warn .n{color:var(--warn)}
-.t-bad{border-left-color:var(--bad)} .t-bad .n{color:var(--bad)}
-.t-mute{border-left-color:var(--mute)}
-
-/* ---------- filtros ---------- */
-.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--line-soft)}
-.tabs{display:flex;gap:2px;background:var(--surface-2);padding:3px;border-radius:var(--radius-sm)}
-.tab{padding:6px 12px;border:0;background:transparent;border-radius:4px;font:500 13px/1 var(--font-ui);cursor:pointer;color:var(--fg-dim)}
-.tab[aria-selected="true"]{background:var(--surface);color:var(--fg);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
-.search{position:relative;margin-left:auto;min-width:0}
-.search input{padding:7px 10px 7px 30px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface);font-size:13.5px;width:220px;max-width:100%}
-.search svg{position:absolute;left:9px;top:50%;transform:translateY(-50%);width:14px;height:14px;stroke:var(--fg-faint);fill:none;stroke-width:1.8}
-
-/* ---------- panel lateral ---------- */
-.scrim{position:fixed;inset:0;background:rgba(10,13,18,.5);z-index:50;animation:fade .15s ease}
-@keyframes fade{from{opacity:0}to{opacity:1}}
-.panel{
-  position:fixed;top:0;right:0;bottom:0;width:min(560px,100%);z-index:51;
-  background:var(--surface);border-left:1px solid var(--line);
-  display:flex;flex-direction:column;box-shadow:var(--shadow);
-}
-.panel-h{display:flex;align-items:flex-start;gap:12px;padding:16px;border-bottom:1px solid var(--line)}
-.panel-h h3{font:600 16px/1.25 var(--font-ui);min-width:0}
-.panel-b{overflow:auto;padding:16px;flex:1;display:flex;flex-direction:column;gap:16px}
-.panel-sec h4{font:600 10.5px/1 var(--font-cond);letter-spacing:.11em;text-transform:uppercase;color:var(--fg-dim);margin:0 0 8px}
-.panel-sec > h4:not(:first-child){margin-top:16px}
-.kv{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:13.5px;align-items:baseline}
-.kv dt{color:var(--fg-dim);white-space:nowrap}
-.kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
-.ocr{
-  font-family:var(--font-mono);font-size:12px;line-height:1.55;white-space:pre-wrap;
-  background:var(--surface-2);border:1px solid var(--line-soft);border-radius:var(--radius-sm);
-  padding:10px;max-height:240px;overflow:auto;overflow-wrap:anywhere;
-}
-.ocr mark{background:var(--accent-soft);color:var(--accent-ink);border-radius:2px;padding:0 1px;font-weight:600}
-:root[data-theme="dark"] .ocr mark{color:var(--accent)}
-@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .ocr mark{color:var(--accent)}}
-.shot{border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface-2);max-height:260px;object-fit:contain;width:100%;display:block}
-.fixrow{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end}
-.fixrow .field{flex:1;min-width:140px}
-
-.banner{
-  display:flex;gap:10px;align-items:flex-start;
-  padding:11px 14px;border-radius:var(--radius-sm);font-size:13.5px;
-  background:var(--accent-soft);border:1px solid var(--line);color:var(--fg);
-}
-.banner.warn{background:var(--warn-soft);border-color:color-mix(in srgb,var(--warn) 35%, transparent)}
-.banner svg{width:16px;height:16px;flex:none;margin-top:1px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round}
-.banner .bx{flex:1;min-width:0}
-.stack{display:flex;flex-direction:column;gap:16px}
-.empty{padding:40px 16px;text-align:center;color:var(--fg-dim);font-size:14px}
-.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-@media print{
-  .topbar,.runbar,.toolbar .tabs,.search,.btn,.drop,.tile{display:none!important}
-  body{background:#fff;color:#000}
-  .card{border-color:#999;break-inside:avoid}
-}
+.drop{border:2px dashed var(--brd2);border-radius:10px;padding:1.6rem;text-align:center;cursor:pointer;transition:all .2s;background:var(--sur2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5rem}
+.drop.over{border-color:var(--cyan);background:rgba(0,229,255,.06)}
+.drop-t{font-family:var(--mono);font-size:.74rem;font-weight:700;color:var(--txtB)}
+.drop-s{font-size:.68rem;color:var(--txtD)}
+.drop-tag{font-family:var(--mono);font-size:.56rem;color:rgba(0,229,255,.7);background:rgba(0,229,255,.05);border:1px solid rgba(0,229,255,.13);padding:.22rem .65rem;border-radius:20px}
+.prev{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:.55rem;margin-top:.8rem}
+.prev-i{position:relative;border-radius:6px;overflow:hidden;border:1px solid var(--brd);aspect-ratio:4/3;background:var(--sur2)}
+.prev-i img{width:100%;height:100%;object-fit:cover}
+.prev-rm{position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;background:rgba(255,61,87,.9);border:none;color:#fff;cursor:pointer;font-size:.6rem;display:flex;align-items:center;justify-content:center}
+.proc{display:flex;flex-direction:column;align-items:center;gap:1rem;padding:2.5rem;text-align:center}
+.spin{width:46px;height:46px;border-radius:50%;border:3px solid rgba(255,255,255,.08);border-top-color:var(--cyan);animation:spin .7s linear infinite}
+.proc-t{font-family:var(--mono);font-size:.72rem;color:var(--cyan)}
+.proc-s{font-size:.7rem;color:var(--txtD)}
+.bar{width:100%;max-width:320px;height:4px;background:var(--sur2);border-radius:2px;overflow:hidden}
+.bar-f{height:100%;background:var(--cyan);transition:width .3s}
+.errbox{background:rgba(255,61,87,.1);border:1px solid rgba(255,61,87,.3);border-radius:8px;padding:.75rem 1rem;margin-bottom:1rem;font-size:.7rem;color:var(--red);font-family:var(--mono);word-break:break-word;line-height:1.5}
+.rc{background:var(--sur2);border:1px solid var(--brd);border-radius:8px;padding:.75rem;margin-bottom:.45rem}
+.rc.sel{border-color:var(--cyan);background:rgba(0,229,255,.05)}
+.rc-grid{display:grid;grid-template-columns:1fr 1fr 1fr 52px 92px 34px;gap:.4rem;align-items:center}
+.rc-f{display:flex;flex-direction:column;gap:.2rem}
+.rc-l{font-family:var(--mono);font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--txtD)}
+.rc-i{background:var(--sur);border:1px solid var(--brd);border-radius:4px;padding:.28rem .42rem;font-size:.71rem;color:var(--txtB);outline:none;width:100%}
+.rc-sel{background:var(--sur);border:1px solid var(--brd);border-radius:4px;padding:.28rem .4rem;font-family:var(--mono);font-size:.64rem;color:var(--txtB);outline:none;cursor:pointer;width:100%}
+.rc-obs{font-size:.66rem;border-radius:4px;padding:.3rem .55rem;margin-top:.4rem;line-height:1.45}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;z-index:999;background:var(--sur2);border:1px solid var(--brd2);border-radius:8px;padding:.7rem 1.1rem;font-size:.74rem;color:var(--txtB);max-width:320px;box-shadow:0 8px 32px rgba(0,0,0,.4);transform:translateY(20px);opacity:0;transition:all .25s}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.t-ok{border-left:3px solid var(--grn)}.toast.t-error{border-left:3px solid var(--red)}.toast.t-info{border-left:3px solid var(--cyan)}
+textarea.paste{width:100%;min-height:170px;background:var(--sur2);border:1px solid var(--brd);border-radius:8px;padding:.7rem .8rem;font-size:.72rem;font-family:var(--mono);color:var(--txtB);outline:none;resize:vertical;line-height:1.5}
+@media(max-width:800px){.main{grid-template-columns:1fr}.side{border-right:none;border-bottom:1px solid var(--brd)}.rc-grid{grid-template-columns:1fr 1fr;gap:.5rem}}
 </style>
 </head>
 <body>
-<header class="topbar">
-  <div class="topbar-in">
-    <div class="brand">
-      <div class="sigil">DNI</div>
-      <div><b>Cotejo de Documentos</b><span id="brandsub">Planilla contra escaneos</span></div>
+<div class="app">
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-icon">DGC</div>
+      <div><div class="logo-t">Sistema de Cotejo</div><div class="logo-s">Direccion General de Casinos</div></div>
     </div>
-    <div class="topbar-actions">
-      <button class="btn btn-sm" id="btn-export" disabled><svg class="icon" viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Exportar informe</button>
-      <button class="btn btn-sm" id="btn-print" disabled><svg class="icon" viewBox="0 0 24 24"><path d="M7 8V3h10v5M7 18H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2M7 15h10v6H7z"/></svg>Imprimir</button>
-      <button class="btn btn-sm" id="btn-theme" title="Cambiar tema" aria-label="Cambiar tema"><svg class="icon" viewBox="0 0 24 24"><path d="M12 3v2m0 14v2M5.6 5.6 7 7m10 10 1.4 1.4M3 12h2m14 0h2M5.6 18.4 7 17m10-10 1.4-1.4"/><circle cx="12" cy="12" r="3.5"/></svg></button>
-    </div>
-  </div>
-</header>
-
-<main class="wrap stack">
-  <div class="lede">
-    <h1>Verificá que cada escaneo se corresponda con la planilla</h1>
-    <p>Cargá la planilla de nombres y documentos y sumá los escaneos. El sistema separa las cédulas que vienen varias por hoja, las endereza, las lee y las cruza con la lista por nombre, apellido y número: marca el número que no coincide, el nombre que no coincide, los que faltan, los que sobran y los duplicados. Todo el procesamiento ocurre en esta computadora.</p>
+    <div class="live"><div class="live-dot"></div>Activo</div>
   </div>
 
-  <div id="env-banner" class="banner warn" hidden>
-    <svg viewBox="0 0 24 24"><path d="M12 9v4m0 3h.01M10.3 3.9 2.6 17a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
-    <div class="bx"><b>Acá no se puede leer documentos: descargá el archivo y abrilo en tu navegador.</b><br>
-    Esta vista previa corre en un entorno que bloquea los <i>Web Workers</i>, que es donde funciona el motor de OCR.
-    Bajá <span class="mono">verificador-documentos.html</span> desde la tarjeta del chat y abrilo con doble clic: ahí anda todo.
-    Mientras tanto podés recorrer el ejemplo y cargar planillas, pero no reconocer imágenes.</div>
-  </div>
-
-  <div id="demo-banner" class="banner">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
-    <div class="bx"><b>Estás viendo un ejemplo cargado.</b> Son 12 personas y 11 escaneos simulados, para que veas cómo se presenta el informe. Cargá tu planilla o tocá “Empezar de cero” cuando quieras trabajar con datos reales.</div>
-    <button class="btn btn-sm" id="btn-reset">Empezar de cero</button>
-  </div>
-
-  <div class="grid-2">
-    <!-- PASO 1 -->
-    <section class="card">
-      <div class="card-h"><span class="step">Paso 1</span><h2>Planilla de personas</h2><span class="step" id="sheet-count" style="margin-left:auto"></span></div>
-      <div class="card-b stack" style="gap:12px">
-        <div class="drop" id="drop-sheet" role="button" tabindex="0" aria-label="Cargar planilla">
-          <svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M4 9h16M4 14h16M9.5 9v12M15 9v12"/></svg>
-          <b>Arrastrá la planilla</b>
-          <small>Excel, CSV o PDF, también escaneado: lee la tabla celda por celda</small>
-          <div class="drop-extra"><button class="btn btn-sm" id="btn-pick-sheet" type="button">Elegir archivo</button></div>
-        </div>
-        <input type="file" id="in-sheet" accept=".xlsx,.xls,.xlsm,.csv,.txt,.pdf" class="sr">
-        <div id="sheet-map" hidden>
-          <div class="maprow">
-            <div class="field" id="f-src" hidden><label for="m-src">Cómo leer el PDF</label>
-              <select id="m-src"><option value="cols">Por columnas detectadas</option><option value="lines">Una línea por persona</option></select></div>
-            <div class="field"><label for="m-mode">Formato del nombre</label>
-              <select id="m-mode"><option value="full">Una sola columna</option><option value="split">Apellido y nombre separados</option></select></div>
-            <div class="field" id="f-full"><label for="m-full">Columna de nombre</label><select id="m-full"></select></div>
-            <div class="field" id="f-ape" hidden><label for="m-ape">Apellido</label><select id="m-ape"></select></div>
-            <div class="field" id="f-nom" hidden><label for="m-nom">Nombre</label><select id="m-nom"></select></div>
-            <div class="field"><label for="m-doc">Columna de documento</label><select id="m-doc"></select></div>
-            <div class="field"><label for="m-docmode">Formato del documento</label>
-              <select id="m-docmode"><option value="auto">Detectar solo</option><option value="cedula">Cédula con dígito verificador (1.222.333-0)</option><option value="plano">Sin dígito verificador (30.123.456)</option></select>
-              <small id="doc-mode-note" style="display:block;margin-top:4px;color:var(--fg-dim);font-size:12px"></small></div>
-          </div>
-          <p class="hint" id="sheet-hint"></p>
-          <div class="scroll" style="max-height:190px;margin-top:10px;border:1px solid var(--line-soft);border-radius:var(--radius-sm)">
-            <table id="sheet-preview"></table>
-          </div>
+  <div class="main">
+    <div class="side">
+      <div>
+        <div class="pt">Resumen</div>
+        <div class="stats">
+          <div class="stat t"><div class="stat-n" id="sT">0</div><div class="stat-l">Total</div></div>
+          <div class="stat o"><div class="stat-n" id="sO">0</div><div class="stat-l">OK</div></div>
+          <div class="stat e"><div class="stat-n" id="sE">0</div><div class="stat-l">Errores</div></div>
+          <div class="stat w"><div class="stat-n" id="sW">0</div><div class="stat-l">Avisos</div></div>
         </div>
       </div>
-    </section>
-
-    <!-- PASO 2 -->
-    <section class="card">
-      <div class="card-h"><span class="step">Paso 2</span><h2>Documentos escaneados</h2><span class="step" id="scan-count" style="margin-left:auto"></span></div>
-      <div class="card-b stack" style="gap:12px">
-        <div class="drop" id="drop-scan" role="button" tabindex="0" aria-label="Cargar escaneos">
-          <svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h3l1.5-2h5L16 5h3a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="12" r="3.5"/></svg>
-          <b>Arrastrá los escaneos</b>
-          <small>Cédulas o DNI en JPG, PNG, WEBP o PDF. Si una hoja trae varias cédulas, las separa y las endereza sola.</small>
-          <div class="drop-extra">
-            <button class="btn btn-sm" id="btn-pick-scan" type="button">Elegir archivos</button>
-            <button class="btn btn-sm" id="btn-pick-dir" type="button">Elegir carpeta</button>
-          </div>
-        </div>
-        <input type="file" id="in-scan" accept="image/*,.pdf" multiple class="sr">
-        <input type="file" id="in-dir" webkitdirectory multiple class="sr">
-        <div class="field">
-          <label for="m-lang">Idioma del OCR</label>
-          <select id="m-lang"><option value="spa">Español</option><option value="spa+eng">Español + inglés (pasaportes)</option><option value="eng">Inglés</option></select>
-        </div>
-        <p class="hint">El motor de OCR se descarga una sola vez (unos 11 MB) y queda en caché del navegador. Las imágenes nunca se suben a ningún servidor.</p>
-        <div><button class="btn btn-sm" id="btn-diag" type="button"><svg class="icon" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 7v5l3 2"/></svg>Probar el motor de OCR</button></div>
+      <div>
+        <div class="pt">Buscar</div>
+        <div class="sw"><span class="sicon">&#8981;</span><input class="si" id="search" placeholder="Nombre, cedula..."></div>
       </div>
-    </section>
-  </div>
-
-  <!-- RUN -->
-  <div class="runbar">
-    <div class="sum" id="run-sum">Cargá una planilla y al menos un escaneo para empezar.</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-left:auto">
-      <button class="btn" id="btn-cancel" hidden>Cancelar</button>
-      <button class="btn btn-primary" id="btn-run" disabled><svg class="icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Verificar</button>
+      <div>
+        <div class="pt">Filtrar</div>
+        <div class="filters" id="filters"></div>
+      </div>
+      <div style="margin-top:auto;display:flex;flex-direction:column;gap:.38rem">
+        <button class="btn-main" onclick="abrirCotejo()">🗂️ Nueva sesion de cotejo</button>
+        <button class="btn-sec" onclick="abrirPegar()">📋 Pegar CSV</button>
+        <button class="btn-sec" onclick="abrirEdit()">+ Agregar manual</button>
+        <button class="btn-sec" onclick="exportarCSV()">↓ Exportar CSV</button>
+        <button class="btn-sec" onclick="limpiarTodo()" style="color:rgba(255,61,87,.5)">⊗ Limpiar todo</button>
+      </div>
     </div>
-  </div>
 
-  <section class="card" id="progress-card" hidden>
-    <div class="card-h"><h2 id="prog-title">Leyendo documentos…</h2><span class="step" id="prog-meta" style="margin-left:auto"></span></div>
-    <div class="card-b">
-      <div class="bar"><i id="prog-bar" style="width:0%"></i></div>
-      <div class="qlist" id="prog-list"></div>
-    </div>
-  </section>
-
-  <!-- RESULTADOS -->
-  <section id="results" class="stack" hidden>
-    <div class="tiles" id="tiles"></div>
-
-    <div class="card">
-      <div class="toolbar">
-        <div class="tabs" role="tablist">
-          <button class="tab" role="tab" id="tab-p" aria-selected="true" aria-controls="tbl-wrap">Por persona</button>
-          <button class="tab" role="tab" id="tab-s" aria-selected="false" aria-controls="tbl-wrap">Por escaneo</button>
-        </div>
-        <div id="active-filter"></div>
-        <div class="search">
-          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
-          <input type="search" id="q" placeholder="Buscar nombre, documento o archivo" aria-label="Buscar">
+    <div class="content">
+      <div class="ch">
+        <div><div class="ct" id="ctTitle">Todos los registros</div><div class="cs" id="ctSub">0 registros</div></div>
+        <div style="font-family:var(--mono);font-size:.58rem;color:var(--txtD)" id="dateTxt"></div>
+      </div>
+      <div class="tscroll">
+        <table id="tbl"><thead><tr id="thead"></tr></thead><tbody id="tbody"></tbody></table>
+        <div class="empty show" id="empty">
+          <div class="empty-icon">📂</div>
+          <div class="empty-text">Sin registros todavia.<br>Presiona <strong style="color:var(--cyan)">Nueva sesion de cotejo</strong> para subir documentos y planilla.</div>
         </div>
       </div>
-      <div class="scroll" id="tbl-wrap"><table id="tbl"></table></div>
     </div>
-  </section>
-</main>
+  </div>
+</div>
 
-<div id="panel-root"></div>
+<div class="ov" id="cotejoOv"><div class="modal">
+  <div class="mh"><div class="mt">🗂️ Nueva sesion de cotejo</div><button class="mc" onclick="cerrarCotejo()">✕</button></div>
+  <div class="steps" id="steps"></div>
+  <div class="mb" id="cotejoBody"></div>
+  <div class="mf" id="cotejoFoot"></div>
+</div></div>
 
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<div class="ov" id="pegarOv"><div class="modal" style="max-width:660px">
+  <div class="mh"><div class="mt">📋 Pegar datos CSV</div><button class="mc" onclick="cerrarPegar()">✕</button></div>
+  <div class="mb">
+    <div style="font-size:.74rem;color:var(--txtD);margin-bottom:.8rem;line-height:1.6">Pega un CSV con las columnas: Fecha, Hora, Cedula, Nombre, Apellido, Sexo, F.Nacimiento, Estado, Observacion.</div>
+    <textarea class="paste" id="pasteTxt" placeholder="#,Fecha,Hora,Cedula,Nombre,Apellido,Sexo,F.Nacimiento,Estado,Observacion"></textarea>
+    <div id="pastePrev" style="margin-top:.7rem;font-size:.7rem;font-family:var(--mono);color:var(--grn)"></div>
+  </div>
+  <div class="mf" style="justify-content:flex-end">
+    <button class="btn-c" onclick="cerrarPegar()">Cancelar</button>
+    <button class="btn-p" onclick="importarPegado()">Importar</button>
+  </div>
+</div></div>
+
+<div class="ov" id="editOv"><div class="modal" style="max-width:480px">
+  <div class="mh"><div class="mt" id="editTitle">Agregar registro</div><button class="mc" onclick="cerrarEdit()">✕</button></div>
+  <div class="mb" id="editBody"></div>
+  <div class="mf" style="justify-content:flex-end">
+    <button class="btn-c" onclick="cerrarEdit()">Cancelar</button>
+    <button class="btn-p" onclick="guardarEdit()">Guardar</button>
+  </div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script src="vendor/pdf.min.js"></script>
 <script>
-"use strict";
-/* ============================================================
-   1. Utilidades de texto, nombres y documentos
-   ============================================================ */
-const $  = (s, r) => (r || document).querySelector(s);
-const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
-const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+if (window.pdfjsLib) { pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js"; }
+// ───── ESTADO ─────
+var recs = [], filtro = "all", busqueda = "", ordenC = null, ordenD = 1, editId = null;
+var ses = { paso:1, docUrls:[], planUrls:[], resultados:[], err:"", cargando:0 };
+var PILLS = { ok:["✓ OK","p-ok"], error:["✗ Error","p-error"], warn:["⚠ Aviso","p-warn"], nd:["? N/D","p-nd"] };
 
-const DEACCENT = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/Ñ/g,"N").replace(/ñ/g,"n");
-const NOISE_TOKENS = new Set(["DE","DEL","LA","LAS","LOS","Y","DA","DI","VAN","VON","DOS","DAS"]);
+function uid(){ return Date.now()+Math.random(); }
+function fmtCI(ci){ if(!ci) return "—"; var n=(""+ci).replace(/\D/g,""); return n.length>=7 ? n.slice(0,-1).replace(/\B(?=(\d{3})+(?!\d))/g,".")+"-"+n.slice(-1) : ci; }
+function cap(s){ return s ? s.charAt(0).toUpperCase()+s.slice(1).toLowerCase() : ""; }
+function esc(s){ return (""+(s==null?"":s)).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;"); }
+function toast(m,t){ var e=document.getElementById("toast"); e.textContent=m; e.className="toast t-"+(t||"info")+" show"; clearTimeout(window._tt); window._tt=setTimeout(function(){e.classList.remove("show");},3200); }
 
-function normName(s){
-  return DEACCENT(String(s == null ? "" : s))
-    .toUpperCase()
-    .replace(/[^A-Z\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-/* "[Yanina" o "«Juan Pérez»" se muestran como lo que son */
-function limpiarNombre(v){
-  return String(v == null ? "" : v)
-    .replace(/[\[\]{}()«»"'`]/g, " ")
-    .replace(/\s+/g, " ")
-    .replace(/^[\s,.;:\-–—]+|[\s,.;:\-–—]+$/g, "")
-    .trim();
-}
-function nameTokens(s){
-  return normName(s).split(" ").filter(t => t.length >= 3 && !NOISE_TOKENS.has(t));
-}
-function onlyDigits(s){ return String(s == null ? "" : s).replace(/\D+/g, ""); }
-
-/* Un documento puede venir con dígito verificador separado por guion
-   (cédula: 1.222.333-0) o sin él (DNI: 30.123.456). Se guardan por separado
-   porque el verificador no forma parte del número que identifica a la persona,
-   y el OCR muchas veces se come el guion. */
-function splitDoc(v){
-  const t = String(v == null ? "" : v).trim();
-  const m = t.match(/^[^\d]*(\d[\d.\s'’·]*)[\s]*[-–—/]\s*([0-9kK])[\s.]*$/);
-  if (m) return { base: onlyDigits(m[1]), dv: m[2].toUpperCase() };
-  return { base: onlyDigits(t), dv: "" };
-}
-const stripZeros = x => String(x || "").replace(/^0+/, "");
-/* En una cédula el último dígito es el verificador, venga con guion o sin él:
-   1.222.333-0 y 12223330 son el mismo documento y se muestran igual. */
-function canonDoc(base, dv){
-  if (dv) return { base, dv };
-  if (S.docModeEff === "cedula" && base.length >= 8) return { base: base.slice(0, -1), dv: base.slice(-1) };
-  return { base, dv:"" };
-}
-function fmtPair(base, dv){
-  if (!base) return "—";
-  const d = base.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-  return dv ? d + "-" + dv : d;
-}
-function fmtDoc(s){ const o = splitDoc(s); return fmtPair(o.base, o.dv); }
-function docKey(s){ const o = splitDoc(s); return stripZeros(o.base); }
-
-/* Claves de una persona: estrictas, salen de lo que dice la planilla. */
-function personKeys(base, dv){
-  const k = new Set();
-  const b = stripZeros(base);
-  if (!b) return k;
-  k.add(b);
-  if (dv) k.add(b + dv);
-  return k;
-}
-/* Claves de un número leído de una imagen: más generosas, porque el OCR
-   pierde el guion y el verificador queda pegado al final. */
-function scanKeys(base, dv){
-  const k = new Set();
-  const b = stripZeros(base);
-  if (!b) return k;
-  k.add(b);
-  if (dv) k.add(b + dv);
-  else if (S.docModeEff === "cedula" && base.length >= 7 && base.length <= 9){
-    const sinUltimo = stripZeros(base.slice(0, -1));
-    if (sinUltimo) k.add(sinUltimo);
-  }
-  return k;
-}
-function keysIntersect(a, b){ for (const x of a) if (b.has(x)) return true; return false; }
-
-/* Dígito verificador de la cédula uruguaya. Sólo se usa para avisar de
-   errores de tipeo en la planilla, y recién cuando se comprobó que el
-   cálculo cierra en la mayoría de las filas. */
-function dvCedulaUy(base){
-  const b = String(base || "").padStart(7, "0").slice(-7);
-  const c = [2, 9, 8, 7, 6, 3, 4];
-  let t = 0;
-  for (let i = 0; i < 7; i++) t += (+b[i] || 0) * c[i];
-  return String((10 - (t % 10)) % 10);
-}
-
-function lev(a, b){
-  if (a === b) return 0;
-  const m = a.length, n = b.length;
-  if (!m) return n; if (!n) return m;
-  let prev = new Array(n + 1), cur = new Array(n + 1);
-  for (let j = 0; j <= n; j++) prev[j] = j;
-  for (let i = 1; i <= m; i++){
-    cur[0] = i;
-    for (let j = 1; j <= n; j++){
-      const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
-      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost);
-    }
-    const t = prev; prev = cur; cur = t;
-  }
-  return prev[n];
-}
-function ratio(a, b){
-  if (!a || !b) return 0;
-  const L = Math.max(a.length, b.length);
-  return 1 - lev(a, b) / L;
-}
-/* Una letra mal leída en un nombre corto ya es otro nombre; en uno largo es
-   ruido del OCR. La tolerancia crece con el largo de la palabra. */
-function tokClose(a, b){
-  if (a === b) return true;
-  const L = Math.max(a.length, b.length);
-  const tope = L <= 4 ? 0 : L <= 7 ? 1 : L <= 11 ? 2 : 3;
-  if (!tope || Math.abs(a.length - b.length) > tope) return false;
-  return lev(a, b) <= tope;
-}
-/* similitud entre dos nombres, sin importar el orden de los tokens */
-function simNames(a, b){
-  const A = nameTokens(a), B = nameTokens(b);
-  if (!A.length || !B.length) return 0;
-  const used = new Array(B.length).fill(false);
-  let hits = 0;
-  for (const ta of A){
-    const j = B.findIndex((tb, i) => !used[i] && tokClose(ta, tb));
-    if (j >= 0){ used[j] = true; hits++; }
-  }
-  return (2 * hits) / (A.length + B.length);
-}
-/* cuántas palabras del nombre de la planilla aparecen en el texto leído.
-   También se prueban pares de palabras pegadas: "MARIAROSARIO" en la planilla
-   es "MARIA ROSARIO" en la cédula, y "DOSSANTOS" es "DOS SANTOS". */
-function coverage(rowTokens, textTokens, bigrams){
-  if (!rowTokens.length) return 0;
-  const hay = t => textTokens.some(tt => tokClose(t, tt)) || (bigrams && bigrams.some(bg => tokClose(t, bg)));
-  let hits = 0;
-  for (let i = 0; i < rowTokens.length; i++){
-    if (hay(rowTokens[i])){ hits++; continue; }
-    /* el OCR también parte palabras del lado de la planilla: "Rod riguez" */
-    if (i + 1 < rowTokens.length && hay(rowTokens[i] + rowTokens[i + 1])){ hits += 2; i++; }
-  }
-  return Math.min(1, hits / rowTokens.length);
-}
-
-/* ============================================================
-   2. Estado
-   ============================================================ */
-const S = {
-  sheet: { rows: [], headers: [], raw: [], fileName: "", map: { mode:"full", full:"", ape:"", nom:"", doc:"" } },
-  scans: [],
-  people: [],
-  running: false,
-  cancel: false,
-  ran: false,
-  demo: true,
-  view: "persons",
-  filter: null,
-  query: "",
-  lang: "spa",
-  docMode: "auto",      /* auto | cedula | plano */
-  docModeEff: "plano",
-  docModeAuto: "plano", /* lo que se detectó en la planilla */
-  dvCheck: false,       /* el verificador cierra en la planilla: se puede avisar */
-  rotPref: {},          /* orientación que funcionó en cada hoja, para sus otras cédulas */
-  keyIndex: null,       /* documento → persona, para cortar el OCR apenas coincide */
-  seq: 0
-};
-
-const ST = {
-  ok:        { label:"Coincide",              tone:"ok",   desc:"El número de documento y el nombre coinciden con la planilla." },
-  manual:    { label:"Verificado a mano",     tone:"ok",   desc:"Confirmado manualmente por quien revisa." },
-  revisar:   { label:"Revisar nombre",        tone:"warn", desc:"El documento coincide, pero el nombre leído se parece sólo en parte." },
-  cercano:   { label:"Documento con posible error de lectura", tone:"warn", desc:"El nombre coincide y el número leído difiere en un solo dígito del de la planilla." },
-  ilegible:  { label:"No se pudo leer",       tone:"warn", desc:"El OCR no encontró un número de documento legible en la imagen." },
-  dup:       { label:"Duplicado",             tone:"warn", desc:"Hay más de un escaneo para la misma persona." },
-  huerfano:  { label:"Sin correspondencia",   tone:"warn", desc:"El documento escaneado no figura en la planilla." },
-  nombre:    { label:"Nombre no coincide",    tone:"bad",  desc:"El número de documento está en la planilla, pero a nombre de otra persona." },
-  docdif:    { label:"Documento no coincide", tone:"bad",  desc:"El nombre coincide con la planilla, pero el número de documento es otro." },
-  falta:     { label:"Sin escaneo",           tone:"bad",  desc:"La persona está en la planilla y no se recibió ningún escaneo." },
-  error:     { label:"Error al procesar",     tone:"bad",  desc:"El archivo no pudo abrirse o procesarse." }
-};
-const toneClass = t => t === "ok" ? "p-ok" : t === "warn" ? "p-warn" : t === "bad" ? "p-bad" : "p-mute";
-const pill = k => { const s = ST[k] || { label:k, tone:"mute" }; return `<span class="pill ${toneClass(s.tone)}">${esc(s.label)}</span>`; };
-
-/* ============================================================
-   3. Tema
-   ============================================================ */
-(function theme(){
-  let pref = null;
-  try { pref = localStorage.getItem("cotejo-theme"); } catch(e){}
-  if (pref === "dark" || pref === "light") document.documentElement.setAttribute("data-theme", pref);
-  $("#btn-theme").addEventListener("click", () => {
-    const cur = document.documentElement.getAttribute("data-theme");
-    const dark = cur ? cur === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
-    const next = dark ? "light" : "dark";
-    document.documentElement.setAttribute("data-theme", next);
-    try { localStorage.setItem("cotejo-theme", next); } catch(e){}
+// ───── INIT ─────
+window.onload = function(){
+  document.getElementById("dateTxt").textContent = new Date().toLocaleDateString("es-UY",{weekday:"short",day:"numeric",month:"short",year:"numeric"});
+  document.getElementById("search").addEventListener("input", function(e){ busqueda=e.target.value; render(); });
+  document.getElementById("pasteTxt").addEventListener("input", function(e){
+    var n = parseCSV(e.target.value).length;
+    document.getElementById("pastePrev").textContent = n ? ("✓ "+n+" registros detectados") : "";
   });
-})();
-
-/* ============================================================
-   4. Planilla
-   ============================================================ */
-const HDR_NAME = ["apellido y nombre","apellido y nombres","nombre y apellido","nombre completo","apellido, nombre","nombre","nombres","titular","persona","beneficiario","alumno","empleado","participante"];
-const HDR_APE  = ["apellido","apellidos","surname","last name"];
-const HDR_NOM  = ["nombre","nombres","given name","first name"];
-const HDR_DOC  = ["dni","documento","nro documento","n documento","num documento","numero de documento","nro. doc","doc","d.n.i","cuil","cuit","identificacion","identificación","cedula","cédula","nro","legajo dni"];
-const HDR_REF  = ["legajo","id","codigo","código","sector","empresa","area","área","curso","grupo","telefono","teléfono","email","mail"];
-
-function headerScore(h, list){
-  const n = DEACCENT(String(h || "")).toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g," ").trim();
-  if (!n) return 0;
-  let best = 0;
-  list.forEach((cand, i) => {
-    const w = 1 - i * 0.01;
-    if (n === cand) best = Math.max(best, 100 * w);
-    else if (n.includes(cand)) best = Math.max(best, 70 * w);
-    else if (cand.includes(n) && n.length >= 3) best = Math.max(best, 50 * w);
-  });
-  return best;
-}
-function guessColumn(headers, list, exclude){
-  let best = "", score = 0;
-  for (const h of headers){
-    if (exclude && exclude.includes(h)) continue;
-    const s = headerScore(h, list);
-    if (s > score){ score = s; best = h; }
-  }
-  return score >= 45 ? best : "";
-}
-/* una fila es cabecera si varias de sus celdas parecen nombres de columna */
-function pickHeaderRow(matrix){
-  const limit = Math.min(matrix.length, 12);
-  let bestIdx = 0, bestScore = -1;
-  for (let i = 0; i < limit; i++){
-    const row = matrix[i] || [];
-    const filled = row.filter(c => String(c == null ? "" : c).trim() !== "").length;
-    if (filled < 2) continue;
-    let sc = filled * 2;
-    for (const c of row){
-      sc += Math.max(headerScore(c, HDR_DOC), headerScore(c, HDR_NAME), headerScore(c, HDR_APE)) / 20;
-      if (/^\d+$/.test(String(c == null ? "" : c).trim())) sc -= 3;
-    }
-    if (sc > bestScore){ bestScore = sc; bestIdx = i; }
-  }
-  return bestIdx;
-}
-
-/* Arma headers + filas a partir de una matriz, venga de Excel, CSV o PDF. */
-function applyMatrix(matrix, fileName){
-  if (!matrix.length) throw new Error("La planilla está vacía.");
-  let hi = pickHeaderRow(matrix);
-  /* Si la fila elegida no tiene ni una celda con pinta de título de columna y sí
-     trae un número con forma de documento, es un dato: la tabla no tiene cabecera. */
-  const cand = matrix[hi] || [];
-  const looksHeader = cand.some(c => Math.max(headerScore(c, HDR_DOC), headerScore(c, HDR_NAME), headerScore(c, HDR_APE), headerScore(c, HDR_REF)) >= 45);
-  const looksData = cand.some(c => { const d = onlyDigits(c); return d.length >= 6 && d.length <= 9; });
-  const synthetic = !looksHeader && looksData;
-  const headers = [];
-  if (synthetic) (cand.length ? cand : [""]).forEach((_, i) => headers.push(`Columna ${i + 1}`));
-  else cand.forEach((h, i) => {
-    let name = String(h == null ? "" : h).trim() || `Columna ${i + 1}`;
-    while (headers.includes(name)) name += " ";
-    headers.push(name);
-  });
-  const headKey = synthetic ? "\u0000" : cand.map(c => normName(c)).join("|");
-  const raw = [];
-  for (let r = synthetic ? hi : hi + 1; r < matrix.length; r++){
-    const arr = matrix[r] || [];
-    if (!arr.some(c => String(c == null ? "" : c).trim() !== "")) continue;
-    if (arr.map(c => normName(c)).join("|") === headKey) continue;   /* cabecera repetida en cada página */
-    const o = {};
-    headers.forEach((h, i) => { o[h] = String(arr[i] == null ? "" : arr[i]).trim(); });
-    raw.push(o);
-  }
-  if (!raw.length) throw new Error("No se encontraron filas de datos debajo de la cabecera.");
-
-  const docCol = guessColumn(headers, HDR_DOC, []);
-  const apeCol = guessColumn(headers, HDR_APE, [docCol]);
-  const fullCol = guessColumn(headers, HDR_NAME, [docCol]);
-  const nomCol = guessColumn(headers, HDR_NOM, [docCol, apeCol]);
-  const splitOk = apeCol && nomCol && apeCol !== nomCol;
-  const docFallback = headers.find(h => raw.filter(r => { const d = onlyDigits(r[h]); return d.length >= 6 && d.length <= 9; }).length >= raw.length * 0.5);
-  const docPick = docCol || docFallback || headers[0];
-
-  /* Sin títulos de columna útiles hay que mirar el contenido: una columna de
-     texto sin dígitos es nombre, y dos seguidas donde una trae una sola palabra
-     son apellido y nombre por separado (el caso del CSV con la coma suelta). */
-  let mode = splitOk ? "split" : "full";
-  let fullPick = fullCol || apeCol || headers.find(h => h !== docPick) || headers[0];
-  let apePick = apeCol || "", nomPick = nomCol || "";
-  if (!fullCol && !splitOk){
-    const vals = h => raw.map(r => String(r[h] == null ? "" : r[h]).trim());
-    const shareText = h => { const v = vals(h); return v.filter(x => x && !/\d/.test(x) && /[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]{2}/.test(x)).length / Math.max(1, v.length); };
-    const shareMulti = h => { const v = vals(h); return v.filter(x => nameTokens(x).length >= 2).length / Math.max(1, v.length); };
-    const others = headers.filter(h => h !== docPick);
-    const textCols = others.filter(h => shareText(h) >= 0.6);
-    if (textCols.length >= 2 && headers.indexOf(textCols[1]) === headers.indexOf(textCols[0]) + 1
-        && (shareMulti(textCols[0]) < 0.6 || shareMulti(textCols[1]) < 0.6)){
-      mode = "split"; apePick = textCols[0]; nomPick = textCols[1];
-    } else {
-      const best = others.slice().sort((x, y) => shareMulti(y) - shareMulti(x) || shareText(y) - shareText(x))[0];
-      if (best) fullPick = best;
-    }
-  }
-
-  if (fileName) S.sheet.fileName = fileName;
-  S.sheet.headers = headers;
-  S.sheet.raw = raw;
-  S.sheet.map = {
-    mode, full: fullPick, ape: apePick, nom: nomPick, doc: docPick
-  };
-  return { headers, raw, synthetic };
-}
-function countDocs(raw, col){
-  if (!raw || !raw.length || !col) return 0;
-  return raw.filter(r => { const d = onlyDigits(r[col]); return d.length >= 6 && d.length <= 9; }).length;
-}
-/* Qué proporción de filas trae algo con forma de documento: sirve para
-   decidir si la lectura por columnas sirvió o conviene leer línea por línea. */
-function docHitRate(raw, col){
-  if (!raw.length || !col) return 0;
-  return raw.filter(r => { const d = onlyDigits(r[col]); return d.length >= 6 && d.length <= 9; }).length / raw.length;
-}
-
-/* ---------- PDF con capa de texto ---------- */
-async function pdfTextPages(file, maxPages){
-  await ensurePdfEngine();
-  const data = new Uint8Array(await file.arrayBuffer());
-  const pdf = await pdfjsLib.getDocument({ data, isEvalSupported:false, verbosity: pdfVerbosity() }).promise;
-  const pages = [];
-  const n = Math.min(pdf.numPages, maxPages || 60);
-  for (let i = 1; i <= n; i++){
-    const page = await pdf.getPage(i);
-    const vp = page.getViewport({ scale:1 });
-    const tc = await page.getTextContent();
-    const items = tc.items
-      .filter(it => it.str && it.str.trim())
-      .map(it => ({ str: it.str.trim(), x: it.transform[4], y: it.transform[5], h: Math.abs(it.transform[3]) || 10 }));
-    pages.push({ items, width: vp.width });
-    page.cleanup();
-  }
-  try { await pdf.destroy(); } catch(e){}
-  return pages;
-}
-/* agrupa fragmentos sueltos en renglones por su altura en la página */
-function groupRows(items){
-  const sorted = items.slice().sort((a, b) => b.y - a.y || a.x - b.x);
-  const rows = [];
-  let cur = null;
-  for (const it of sorted){
-    const tol = Math.max(2.5, it.h * 0.55);
-    if (cur && Math.abs(cur.y - it.y) <= tol) cur.items.push(it);
-    else { cur = { y: it.y, items:[it] }; rows.push(cur); }
-  }
-  rows.forEach(r => r.items.sort((a, b) => a.x - b.x));
-  return rows;
-}
-/* los comienzos de columna son las posiciones X que se repiten renglón a renglón */
-function detectColumns(rows, pageWidth){
-  const xs = [];
-  rows.forEach(r => r.items.forEach(it => xs.push(it.x)));
-  if (!xs.length) return [];
-  xs.sort((a, b) => a - b);
-  const tol = Math.max(4, pageWidth * 0.012);
-  const groups = [];
-  for (const x of xs){
-    const last = groups[groups.length - 1];
-    if (last && x - last.max <= tol){ last.max = x; last.n++; }
-    else groups.push({ min:x, max:x, n:1 });
-  }
-  const minN = Math.max(2, Math.floor(rows.length * 0.25));
-  let cols = groups.filter(g => g.n >= minN);
-  if (cols.length < 2) cols = groups.filter(g => g.n >= 2);
-  if (cols.length < 2) cols = groups;
-  return cols.map(g => g.min).sort((a, b) => a - b);
-}
-function rowsToMatrix(rows, cols, pageWidth){
-  const tol = Math.max(4, pageWidth * 0.012);
-  return rows.map(r => {
-    const cells = new Array(cols.length).fill("");
-    for (const it of r.items){
-      let ci = 0;
-      for (let c = 0; c < cols.length; c++) if (it.x + tol >= cols[c]) ci = c;
-      cells[ci] = cells[ci] ? cells[ci] + " " + it.str : it.str;
-    }
-    return cells.map(c => c.trim());
-  });
-}
-function rowsToLines(rows){
-  return rows.map(r => r.items.map(i => i.str).join(" ").replace(/\s+/g, " ").trim()).filter(Boolean);
-}
-
-/* ---------- una línea por persona: el modo a prueba de columnas torcidas ---------- */
-const LINE_SKIP = /^(APELLIDO|NOMBRE|DNI|DOCUMENTO|LEGAJO|N[º°O]|PAGINA|PÁGINA|TOTAL|LISTADO|PLANILLA|FECHA|FIRMA|HOJA)\b/i;
-function parseLine(text){
-  let t = String(text || "").replace(/\s+/g, " ").trim();
-  if (!t) return null;
-  const cands = [];
-  let m;
-  const re = /(?<!\d)(\d{1,3}(?:[.\s'’·]\d{3})+|\d{5,9})(?:\s*[-–—]\s*([0-9kK]))?(?!\d)/g;
-  while ((m = re.exec(t)) !== null){
-    const agrupado = /[.\s'’·]/.test(m[1]);
-    cands.push({ raw:m[0], num:onlyDigits(m[1]), score:(agrupado ? 3 : 2) + (m[2] ? 1 : 0), at:m.index });
-  }
-  cands.sort((a, b) => b.score - a.score || b.at - a.at);
-  const doc = cands[0] || null;
-  let rest = doc ? (t.slice(0, doc.at) + " " + t.slice(doc.at + doc.raw.length)) : t;
-  rest = rest.replace(/\([^)]*\)/g, " ").replace(/\[[^\]]*\]/g, " ");   /* (Sector), [obs] */
-  /* lo que queda con dígitos (legajo, orden, teléfono) no es el nombre,
-     y las etiquetas sueltas tampoco */
-  const LABEL = /^(DNI|D\.N\.I\.?|C\.?I\.?|CED|CEDULA|CÉDULA|DOC|DOCUMENTO|DOCUMENTOS|LEGAJO|CUIL|CUIT|NRO|NUM|NUMERO|N[º°]|NO|SECTOR|AREA|ÁREA|CARGO|TEL|MAIL|EMAIL)[.:]?$/i;
-  const ref = [];
-  const name = rest.split(/[;|\t]/)[0].split(" ").filter(w => {
-    if (!w) return false;
-    if (/\d/.test(w)){ if (w.length > 1) ref.push(w); return false; }
-    if (LABEL.test(w)) return false;
-    return true;
-  }).join(" ").replace(/\s+/g, " ").replace(/^[\s,.\-–—:]+|[\s,.\-–—:]+$/g, "").trim();
-  if (!nameTokens(name).length) return null;
-  if (!doc && LINE_SKIP.test(t)) return null;
-  return { "Nombre": name, "Documento": doc ? doc.raw : "" };
-}
-function linesToRaw(lines){
-  const out = [];
-  for (const l of lines){ const r = parseLine(l); if (r) out.push(r); }
-  return out;
-}
-function applyLines(lines, fileName){
-  const raw = linesToRaw(lines);
-  if (!raw.length) throw new Error("No se reconoció ninguna línea con nombre y documento.");
-  if (fileName) S.sheet.fileName = fileName;
-  S.sheet.headers = ["Nombre", "Documento"];
-  S.sheet.raw = raw;
-  S.sheet.map = { mode:"full", full:"Nombre", ape:"", nom:"", doc:"Documento" };
-  return raw;
-}
-
-/* ---------- PDF escaneado: OCR de cada página ---------- */
-async function pdfOcrLines(file, onStep){
-  const canvases = await pdfPagesToCanvases(file, 20);
-  if (!canvases.length) throw new Error("El PDF no tiene páginas legibles.");
-  await TESS.init(S.lang);
-  const lines = [];
-  const rowsAll = [];
-  for (let i = 0; i < canvases.length; i++){
-    if (onStep) onStep(i, canvases.length);
-    const slot = await TESS.take();
-    try {
-      const { data } = await slot.w.recognize(preprocess(canvases[i], false));
-      (data.text || "").split(/\r?\n/).forEach(l => { const t = l.trim(); if (t) lines.push(t); });
-      /* si el motor devuelve cajas por palabra, se puede reconstruir la grilla */
-      try {
-        const words = [];
-        (data.blocks || []).forEach(b => (b.paragraphs || []).forEach(p => (p.lines || []).forEach(ln => (ln.words || []).forEach(w => {
-          if (w.text && w.text.trim() && w.bbox) words.push({ str:w.text.trim(), x:w.bbox.x0, y:-w.bbox.y0, h:Math.max(6, w.bbox.y1 - w.bbox.y0) });
-        }))));
-        if (words.length > 10) rowsAll.push({ rows: groupRows(words), width: canvases[i].width });
-      } catch(e){}
-    } finally { slot.busy = false; }
-    canvases[i].width = 1; canvases[i].height = 1;
-  }
-  return { lines, grids: rowsAll };
-}
-
-/* ---------- planilla escaneada: tabla con grilla → celdas ---------- */
-const LETRAS = "ABCDEFGHIJKLMNÑOPQRSTUVWXYZabcdefghijklmnñopqrstuvwxyzÁÉÍÓÚÜáéíóúü ";
-const PARTICULAS = new Set(["DE","DEL","LA","LAS","LOS","DA","DI","DO","DOS","DAS","VAN","VON","Y","E"]);
-
-/* Borra los restos de las líneas de la tabla que quedan en el borde de una
-   celda. Sólo mira las franjas de los bordes y sólo trazos de casi todo el
-   alto: el palote de una "l" o de un "1" está en el medio y es más corto. */
-function cleanCell(c){
-  const g = ctx2d(c), img = g.getImageData(0, 0, c.width, c.height), d = img.data, W = c.width, H = c.height;
-  const lum = new Uint8Array(W * H);
-  for (let i = 0, j = 0; i < lum.length; i++, j += 4) lum[i] = (d[j] * 0.299 + d[j + 1] * 0.587 + d[j + 2] * 0.114) | 0;
-  const blanco = i => { const o = i * 4; d[o] = d[o + 1] = d[o + 2] = 255; };
-  const bx = Math.max(3, Math.round(W * 0.06)), by = Math.max(2, Math.round(H * 0.18));
-  for (let x = 0; x < W; x++){
-    if (x >= bx && x < W - bx) continue;
-    let n = 0; for (let y = 0; y < H; y++) if (lum[y * W + x] < 170) n++;
-    if (n > 0.85 * H) for (let y = 0; y < H; y++) blanco(y * W + x);
-  }
-  for (let y = 0; y < H; y++){
-    if (y >= by && y < H - by) continue;
-    let n = 0; for (let x = 0; x < W; x++) if (lum[y * W + x] < 170) n++;
-    if (n > 0.6 * W) for (let x = 0; x < W; x++) blanco(y * W + x);
-  }
-  g.putImageData(img, 0, 0);
-  return c;
-}
-function cellCanvas(canvas, grid, r, c){
-  const x0 = grid.cols[c], x1 = grid.cols[c + 1], y0 = grid.rows[r], y1 = grid.rows[r + 1];
-  const padY = Math.max(3, Math.round((y1 - y0) * 0.08));
-  const padL = 5, padR = Math.max(6, Math.round((x1 - x0) * 0.04));
-  return cleanCell(cropCanvas(canvas, x0 + padL, y0 + padY, (x1 - x0) - padL - padR, (y1 - y0) - 2 * padY));
-}
-async function readCellRaw(slot, canvas, grid, r, c){
-  const cell = cellCanvas(canvas, grid, r, c);
-  await slot.w.setParameters({ tessedit_pageseg_mode: "7", tessedit_char_whitelist: "" });
-  const { data } = await slot.w.recognize(cell);
-  freeCanvas(cell);
-  return (data.text || "").replace(/\s+/g, " ").trim();
-}
-function limpiarCeldaNombre(t){
-  let w = t.split(" ").filter(x => x && (x.length >= 3 || PARTICULAS.has(DEACCENT(x).toUpperCase())));
-  /* una letra suelta al borde viene de la columna de al lado, no del nombre */
-  while (w.length > 1 && w[0].length <= 2) w.shift();
-  while (w.length > 1 && w[w.length - 1].length <= 2) w.pop();
-  return w.join(" ").trim();
-}
-/* Cada celda se lee con el alfabeto que le corresponde (sólo dígitos o sólo
-   letras) y, si no convence, se reintenta más grande y con otro modo. */
-async function readCell(slot, canvas, grid, r, c, kind){
-  const base = cellCanvas(canvas, grid, r, c);
-  const intentos = [{ psm:"7", k:1 }, { psm:"8", k:2 }, { psm:"6", k:1.5 }];
-  let mejor = "", previo = null;
-  for (const t of intentos){
-    const img = t.k !== 1 ? scaleCanvas(base, t.k) : base;
-    await slot.w.setParameters({ tessedit_pageseg_mode: t.psm, tessedit_char_whitelist: kind === "digits" ? "0123456789" : LETRAS });
-    const { data } = await slot.w.recognize(img);
-    if (img !== base) freeCanvas(img);
-    let txt = (data.text || "").replace(/\s+/g, " ").trim();
-    if (kind === "digits"){
-      txt = txt.replace(/\D/g, "");
-      if (txt.length >= 7 && txt.length <= 8 && dvCedulaUy(txt.slice(0, -1)) === txt.slice(-1)){ mejor = txt; break; }
-      if (txt.length > mejor.length) mejor = txt;
-      if (txt && txt === previo) break;      /* dos lecturas iguales: es lo que dice */
-      previo = txt;
-    } else {
-      txt = limpiarCeldaNombre(txt);
-      if (txt.replace(/\s/g, "").length >= 2){ mejor = txt; break; }
-    }
-  }
-  freeCanvas(base);
-  return mejor;
-}
-function rolesFromHeader(textos){
-  const idx = re => textos.findIndex(t => re.test(t));
-  const ced = idx(/\b(CEDULA|CI|DOCUMENTO|DNI|IDENTIDAD|DOC)\b/);
-  if (ced < 0) return null;
-  const full = idx(/NOMBRES? (Y|E) APELLIDOS?|APELLIDOS? (Y|E) NOMBRES?|NOMBRE COMPLETO/);
-  const nom = idx(/^NOMBRES?\b/);
-  const ape = idx(/APELLIDO|APELIDO/);
-  const names = full >= 0 ? [full] : [nom, ape].filter(x => x >= 0);
-  return names.length ? { ced, names, ncols: textos.length } : null;
-}
-/* sin cabecera: la columna de documento es la que trae números que cierran el
-   verificador; las de nombre, las de texto más cercanas a ella */
-async function rolesFromContent(slot, canvas, grid, startRow){
-  const n = grid.cols.length - 1;
-  const filas = Math.min(3, grid.rows.length - 1 - startRow);
-  if (filas < 1) return null;
-  const st = Array.from({ length: n }, () => ({ ced: 0, num: 0, alpha: 0 }));
-  for (let r = startRow; r < startRow + filas; r++){
-    for (let c = 0; c < n; c++){
-      const t = await readCellRaw(slot, canvas, grid, r, c);
-      const d = onlyDigits(t);
-      if (d.length >= 7 && d.length <= 8 && dvCedulaUy(d.slice(0, -1)) === d.slice(-1)) st[c].ced++;
-      else if (d.length >= 6 && d.length <= 9 && !/[A-Za-z]{3}/.test(t)) st[c].num++;
-      if (t.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g, "").length >= 3 && !/\d/.test(t)) st[c].alpha++;
-    }
-  }
-  let ced = -1, mejor = 0;
-  st.forEach((x, i) => { const v = x.ced * 10 + x.num; if (v > mejor){ mejor = v; ced = i; } });
-  if (ced < 0) return null;
-  const names = st.map((x, i) => ({ i, a: x.alpha })).filter(x => x.i !== ced && x.a >= Math.ceil(filas * 0.6))
-    .sort((a, b) => Math.abs(a.i - ced) - Math.abs(b.i - ced)).slice(0, 2).map(x => x.i).sort((a, b) => a - b);
-  return names.length ? { ced, names, ncols: n } : null;
-}
-/* La hoja puede venir acostada: el sentido con más líneas largas es el de las
-   filas, y entre derecho y patas arriba decide el OCR de las primeras filas. */
-async function orientTable(slot, src){
-  const ax = lineAxis(src);
-  const base = ax.v > ax.h ? 90 : 0;
-  let best = null;
-  for (const rot of [base, base + 180]){
-    const c = rotateCanvas(src, rot);
-    const grid = detectGrid(c);
-    if (!grid){ if (c !== src) freeCanvas(c); continue; }
-    const y0 = grid.rows[0], y1 = grid.rows[Math.min(3, grid.rows.length - 1)];
-    const x0 = grid.cols[0], x1 = grid.cols[grid.cols.length - 1];
-    const band = cropCanvas(c, x0, y0, x1 - x0, y1 - y0);
-    const small = band.width > 2000 ? scaleCanvas(band, 2000 / band.width) : band;
-    await slot.w.setParameters({ tessedit_pageseg_mode: "6", tessedit_char_whitelist: "" });
-    const { data } = await slot.w.recognize(small);
-    if (small !== band) freeCanvas(small);
-    freeCanvas(band);
-    const score = (data && data.confidence) || 0;
-    if (!best || score > best.score){
-      if (best && best.canvas !== src) freeCanvas(best.canvas);
-      best = { canvas: c, grid, score, rot };
-    } else if (c !== src) freeCanvas(c);
-  }
-  return best;
-}
-async function readScannedTable(file, onStep){
-  if (ENV.workers === false) throw new Error("Esta planilla es un PDF escaneado (no tiene texto), así que hay que leerla con OCR. " + SIN_WORKERS);
-  onStep("Cargando el motor de OCR…");
-  await TESS.ready(S.lang);
-  const n = Math.min(await pdfPageCount(file), 20);
-  const slot = await TESS.take();
-  const filas = [];
-  let roles = null;
-  try {
-    for (let p = 0; p < n; p++){
-      onStep(`Planilla escaneada · página ${p + 1} de ${n}: buscando la tabla`);
-      const page = await pdfPageToCanvas(file, p, 2400);
-      const t = await orientTable(slot, page);
-      if (!t){ freeCanvas(page); continue; }
-      if (t.canvas !== page) freeCanvas(page);
-      const { canvas, grid } = t;
-      const ncols = grid.cols.length - 1;
-      let start = 0, propios = null;
-      /* si ya se conocen las columnas de una página anterior, alcanza con ver si
-         la primera fila trae un documento para saber que no hay cabecera */
-      let esDato = false;
-      if (roles && roles.ncols === ncols){
-        const d = onlyDigits(await readCellRaw(slot, canvas, grid, 0, roles.ced));
-        esDato = d.length >= 6;
-      }
-      if (!esDato){
-        for (let r = 0; r < Math.min(2, grid.rows.length - 1) && !propios; r++){
-          const textos = [];
-          for (let c = 0; c < ncols; c++) textos.push(normName(await readCellRaw(slot, canvas, grid, r, c)));
-          propios = rolesFromHeader(textos);
-          if (propios) start = r + 1;
-        }
-      }
-      if (propios) roles = propios;
-      else if (!roles || roles.ncols !== ncols) roles = await rolesFromContent(slot, canvas, grid, 0);
-      if (!roles){ freeCanvas(canvas); continue; }
-      const total = grid.rows.length - 1;
-      for (let r = start; r < total; r++){
-        /* una franja mucho más baja que las demás no es una fila: es el hueco
-           entre una línea de la tabla y la marca del escáner */
-        if (grid.rows[r + 1] - grid.rows[r] < 0.6 * grid.rowH) continue;
-        onStep(`Planilla escaneada · página ${p + 1} de ${n}: fila ${r - start + 1} de ${total - start}`);
-        const ced = await readCell(slot, canvas, grid, r, roles.ced, "digits");
-        const nombres = [];
-        for (const c of roles.names) nombres.push(await readCell(slot, canvas, grid, r, c, "letters"));
-        if (ced || nombres.some(Boolean)) filas.push({ ced, nombres });
-      }
-      freeCanvas(canvas);
-    }
-  } finally {
-    try { await slot.w.setParameters({ tessedit_pageseg_mode: "3", tessedit_char_whitelist: "" }); } catch(e){}
-    slot.busy = false;
-  }
-  return { filas, roles };
-}
-function applyTableRows(tabla, fileName){
-  const dos = tabla.roles && tabla.roles.names.length === 2;
-  S.sheet.fileName = fileName;
-  S.sheet.pdf = null;
-  S.sheet.ocrTable = true;
-  if (dos){
-    S.sheet.headers = ["Nombre", "Apellido", "Cédula"];
-    S.sheet.raw = tabla.filas.map(f => ({ "Nombre": f.nombres[0] || "", "Apellido": f.nombres[1] || "", "Cédula": f.ced }));
-    S.sheet.map = { mode:"split", full:"Nombre", ape:"Apellido", nom:"Nombre", doc:"Cédula" };
-  } else {
-    S.sheet.headers = ["Nombre", "Cédula"];
-    S.sheet.raw = tabla.filas.map(f => ({ "Nombre": f.nombres[0] || "", "Cédula": f.ced }));
-    S.sheet.map = { mode:"full", full:"Nombre", ape:"", nom:"", doc:"Cédula" };
-  }
-}
-
-async function loadSheetFile(file){
-  const isPdf = /\.pdf$/i.test(file.name) || file.type === "application/pdf";
-  S.sheet.ocrTable = false;
-  S.sheet.fileName = file.name;
-  S.sheet.pdf = null;
-  if (!isPdf){
-    if (!window.XLSX) throw new Error("No se pudo cargar el lector de Excel. Revisá la conexión a internet la primera vez.");
-    const wb = XLSX.read(await file.arrayBuffer(), { type:"array", cellDates:true, codepage:65001 });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    if (!ws) throw new Error("La planilla no tiene hojas con datos.");
-    applyMatrix(XLSX.utils.sheet_to_json(ws, { header:1, raw:false, defval:"", blankrows:false }), file.name);
-  } else {
-    const pages = await pdfTextPages(file);
-    const chars = pages.reduce((a, p) => a + p.items.reduce((b, i) => b + i.str.length, 0), 0);
-    let matrix = [], lines = [];
-    if (chars >= 60){
-      /* el PDF trae texto: se reconstruyen renglones y columnas */
-      const width = Math.max(...pages.map(p => p.width || 600));
-      const allRows = [];
-      pages.forEach(p => { groupRows(p.items).forEach(r => allRows.push(r)); });
-      const cols = detectColumns(allRows, width);
-      matrix = rowsToMatrix(allRows, cols, width);
-      lines = rowsToLines(allRows);
-    } else {
-      /* PDF escaneado: primero se busca una tabla con grilla y se lee celda por celda */
-      if (ENV.workers === false) throw new Error("Esta planilla es un PDF escaneado (no tiene texto), así que hay que leerla con OCR. " + SIN_WORKERS);
-      const tabla = await readScannedTable(file, t => paintProgress(0, 0, t));
-      if (tabla.filas.length >= 2){
-        applyTableRows(tabla, file.name);
-        $("#progress-card").hidden = true;
-        S.demo = false;
-        buildMapUI();
-        applySheetMap();
-        return;
-      }
-      /* sin grilla: se lee como texto corrido, renglón por renglón */
-      paintProgress(0, 0, "El PDF no tiene texto: leyéndolo con OCR…");
-      const got = await pdfOcrLines(file, (i, n) => paintProgress(n, i, `Leyendo la planilla con OCR — página ${i + 1} de ${n}`));
-      lines = got.lines;
-      if (got.grids.length){
-        const width = Math.max(...got.grids.map(g => g.width));
-        const allRows = [];
-        got.grids.forEach(g => g.rows.forEach(r => allRows.push(r)));
-        matrix = rowsToMatrix(allRows, detectColumns(allRows, width), width);
-      }
-      $("#progress-card").hidden = true;
-    }
-    /* se prueban las dos lecturas y gana la que reconoce más documentos */
-    let colRaw = null, colHeaders = null, colMap = null, colSynth = true, colDocs = 0;
-    if (matrix.length > 1){
-      try {
-        const r = applyMatrix(matrix, file.name);
-        colRaw = r.raw; colHeaders = r.headers; colMap = { ...S.sheet.map }; colSynth = r.synthetic;
-        colDocs = countDocs(colRaw, colMap.doc);
-        if (docHitRate(colRaw, colMap.doc) < 0.4 || colHeaders.length < 2) colDocs = 0;
-      } catch(e){ colRaw = null; }
-    }
-    const lineRaw = linesToRaw(lines);
-    const lineDocs = lineRaw.filter(r => onlyDigits(r.Documento).length >= 6).length;
-    const lineOk = lineRaw.length > 0;
-    if (!colDocs && !lineOk) throw new Error("No se pudo interpretar el PDF. Probá exportarlo a Excel o CSV.");
-    /* gana la lectura que reconoce más documentos; con empate, las columnas
-       sólo si la tabla traía cabecera propia */
-    const colsOk = colDocs > 0 && (lineDocs <= 0 || (colSynth ? colDocs > lineDocs : colDocs >= lineDocs));
-    S.sheet.pdf = { lines, colHeaders, colRaw, colMap, has: { cols: colDocs > 0, lines: lineOk } };
-    if (colsOk || !lineOk){
-      S.sheet.headers = colHeaders; S.sheet.raw = colRaw; S.sheet.map = colMap; S.sheet.pdfMode = "cols";
-    } else {
-      applyLines(lines, file.name); S.sheet.pdfMode = "lines";
-    }
-  }
-  S.demo = false;
-  buildMapUI();
-  applySheetMap();
-}
-
-function setPdfMode(mode){
-  const d = S.sheet.pdf;
-  if (!d) return;
-  if (mode === "cols" && d.colRaw){
-    S.sheet.headers = d.colHeaders; S.sheet.raw = d.colRaw; S.sheet.map = { ...d.colMap };
-  } else {
-    applyLines(d.lines, S.sheet.fileName);
-  }
-  S.sheet.pdfMode = mode;
-  buildMapUI();
-  applySheetMap();
-}
-
-function buildMapUI(){
-  const { headers, map } = S.sheet;
-  const fill = (sel, val, withEmpty) => {
-    const el = $(sel);
-    el.innerHTML = (withEmpty ? `<option value="">— ninguna —</option>` : "") +
-      headers.map(h => `<option value="${esc(h)}"${h === val ? " selected" : ""}>${esc(h)}</option>`).join("");
-  };
-  fill("#m-full", map.full, false);
-  fill("#m-ape", map.ape, false);
-  fill("#m-nom", map.nom, false);
-  fill("#m-doc", map.doc, false);
-  $("#m-mode").value = map.mode;
-  $("#m-docmode").value = S.docMode;
-  const pdf = S.sheet.pdf;
-  $("#f-src").hidden = !pdf;
-  if (pdf){
-    $("#m-src").innerHTML =
-      (pdf.has.cols ? `<option value="cols">Por columnas detectadas</option>` : "") +
-      (pdf.has.lines ? `<option value="lines">Una línea por persona</option>` : "");
-    $("#m-src").value = S.sheet.pdfMode || "cols";
-  }
-  $("#f-full").hidden = map.mode !== "full";
-  $("#f-ape").hidden = map.mode !== "split";
-  $("#f-nom").hidden = map.mode !== "split";
-  $("#sheet-map").hidden = false;
-}
-
-function applySheetMap(){
-  const m = S.sheet.map;
-  const crudos = S.sheet.raw.map(r => splitDoc(r[m.doc] || ""));
-
-  /* ¿Son cédulas con verificador o documentos sin él? Lo dice la planilla,
-     por dos caminos: el guion explícito, o que el último dígito cierre como
-     verificador (así se reconocen las planillas que perdieron el guion). */
-  const conNum = crudos.filter(d => d.base).length;
-  const conDv = crudos.filter(d => d.base && d.dv).length;
-  const porGuion = conNum > 0 && conDv / conNum >= 0.6;
-  const pelados = crudos.filter(d => d.base && !d.dv && d.base.length >= 7);
-  const pelCierran = pelados.filter(d => dvCedulaUy(d.base.slice(0, -1)) === d.base.slice(-1)).length;
-  const ratio = pelados.length ? pelCierran / pelados.length : 0;
-  /* Que el último dígito cierre por casualidad pasa 1 de cada 10 veces, así que
-     la mitad de las filas ya es una señal fuerte y aguanta planillas sucias. */
-  const porCalculo = (pelados.length >= 6 && ratio >= 0.5) || (pelados.length >= 3 && ratio >= 0.8);
-  S.docModeAuto = (porGuion || porCalculo) ? "cedula" : "plano";
-  S.docModeEff = S.docMode === "auto" ? S.docModeAuto : S.docMode;
-  const modo = S.docModeEff;
-
-  /* El aviso por verificador equivocado sólo se da si el cálculo cierra en la
-     mayoría de las filas; si no, es de otro esquema y se queda callado. */
-  const conDvList = crudos.map(d => canonDoc(d.base, d.dv)).filter(d => d.base && /^[0-9]$/.test(d.dv));
-  const cierran = conDvList.filter(d => dvCedulaUy(d.base) === d.dv).length;
-  S.dvCheck = conDvList.length >= 5 && cierran / conDvList.length >= 0.8;
-
-  const people = [];
-  let descartadas = 0;
-  S.sheet.raw.forEach((r, i) => {
-    const nombre = limpiarNombre(m.mode === "split"
-      ? [r[m.ape] || "", r[m.nom] || ""].filter(Boolean).join(", ")
-      : (r[m.full] || ""));
-    const docRaw = r[m.doc] || "";
-    const { base, dv } = canonDoc(crudos[i].base, crudos[i].dv);
-    /* sin documento y sin un nombre de al menos dos palabras no hay nada que cotejar:
-       son encabezados sueltos, notas o filas vacías */
-    if (!base && nameTokens(nombre).length < 2){ descartadas++; return; }
-    people.push({
-      idx: people.length, fila: i + 2, nombre: nombre.trim(), docRaw,
-      doc: base, dv, docDisp: fmtPair(base, dv),
-      key: stripZeros(base), keys: personKeys(base, dv),
-      tokens: nameTokens(nombre),
-      scans: [], status: "falta", flags: [], nameScore: 0, override: null, raw: r
-    });
-  });
-
-  /* avisos propios de la planilla */
-  const porClave = new Map();
-  people.forEach(p => {
-    if (!p.doc) p.flags.push("Sin número de documento en la planilla");
-    else if (p.doc.length < 5 || p.doc.length > 9) p.flags.push(`Número de documento improbable (${p.doc.length} dígitos)`);
-    if (p.dv && S.dvCheck && dvCedulaUy(p.doc) !== p.dv)
-      p.flags.push(`El dígito verificador no cierra: ${p.docDisp} debería terminar en ${dvCedulaUy(p.doc)}`);
-    if (!p.tokens.length) p.flags.push("Sin nombre en la planilla");
-    if (p.key){ if (!porClave.has(p.key)) porClave.set(p.key, []); porClave.get(p.key).push(p); }
-  });
-  porClave.forEach(list => {
-    if (list.length > 1) list.forEach(p => p.flags.push(`Documento repetido en la planilla (filas ${list.map(x => x.fila).join(", ")})`));
-  });
-  S.people = people;
-
-  const sinDoc = people.filter(p => !p.doc).length;
-  S.sheet.descartadas = descartadas;
-  const dvMal = people.filter(p => p.flags.some(f => f.startsWith("El dígito"))).length;
-  $("#m-docmode").value = S.docMode;
-  $("#doc-mode-note").textContent = modo === "cedula"
-    ? (S.dvCheck ? "Cédulas con dígito verificador — se valida" : "Cédulas con dígito verificador")
-    : "Documentos sin dígito verificador";
-  $("#sheet-hint").innerHTML = `<b>${people.length}</b> personas leídas de <span class="mono">${esc(S.sheet.fileName)}</span>` +
-    (sinDoc ? ` · <span style="color:var(--bad)">${sinDoc} sin documento</span>` : "") +
-    (descartadas ? ` · ${descartadas} fila${descartadas === 1 ? "" : "s"} sin nombre ni documento que se ignoran` : "") +
-    (dvMal ? ` · <span style="color:var(--warn)">${dvMal} con el verificador mal</span>` : "") +
-    (S.sheet.pdf ? ` · PDF interpretado ${S.sheet.pdfMode === "lines" ? "línea por línea" : "por columnas"}: si quedó torcido, cambiá “Cómo leer el PDF”.` : "") +
-    (S.sheet.ocrTable ? ` · Leída de un escaneo, celda por celda: las filas con aviso conviene mirarlas contra el papel.` : "") +
-    ` · Si alguna columna quedó mal asignada, cambiala acá arriba.`;
-  $("#sheet-count").textContent = `${people.length} personas`;
-  renderSheetPreview();
-  refreshRunbar();
-  if (S.ran) reconcile();
-}
-
-function renderSheetPreview(){
-  const rows = S.people.slice(0, 60);
-  $("#sheet-preview").innerHTML =
-    `<thead><tr><th>Fila</th><th>Nombre</th><th>Documento</th></tr></thead><tbody>` +
-    rows.map(p => `<tr><td class="mono" style="color:var(--fg-faint)">${p.fila}</td><td>${esc(p.nombre) || '<span style="color:var(--bad)">(vacío)</span>'}</td><td class="mono">${p.doc ? esc(p.docDisp) : '<span style="color:var(--bad)">(vacío)</span>'}</td></tr>`).join("") +
-    `</tbody>` + (S.people.length > rows.length ? `<tfoot><tr><td colspan="3" style="color:var(--fg-dim);font-size:12.5px">+ ${S.people.length - rows.length} filas más</td></tr></tfoot>` : "");
-}
-
-/* ============================================================
-   5. Entrada de escaneos
-   ============================================================ */
-const IMG_RE = /\.(jpe?g|png|webp|bmp|gif|tiff?)$/i;
-function addScanFiles(files){
-  const list = Array.from(files || []).filter(f => f && (IMG_RE.test(f.name) || /\.pdf$/i.test(f.name) || (f.type || "").startsWith("image/") || f.type === "application/pdf"));
-  if (!list.length) return;
-  if (S.demo){ hardReset(true); }
-  for (const f of list){
-    S.scans.push({
-      id: "s" + (++S.seq), file: f, fileName: f.name, page: 0, pages: 1,
-      label: f.name, status: "pending", text: "", conf: 0,
-      docs: [], names: [], mrz: null, textTokens: [], thumb: "",
-      manualDoc: "", personIdx: -1, verdict: "", nameScore: 0, note: "", read: ""
-    });
-  }
-  $("#scan-count").textContent = `${S.scans.length} archivo${S.scans.length === 1 ? "" : "s"}`;
-  refreshRunbar();
-}
-
-/* ------- PDF: cada página se trata como un escaneo ------- */
-const PDF_WORKER = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
-function loadScript(src){
-  return new Promise((res, rej) => {
-    const el = document.createElement("script");
-    el.src = src; el.onload = () => res(); el.onerror = () => rej(new Error("No se pudo cargar " + src));
-    document.head.appendChild(el);
-  });
-}
-/* Un archivo abierto desde el disco corre con origen "null": el navegador no
-   deja crear un worker desde una URL, pero sí desde un blob. Por eso se baja
-   el código del worker y se arma el blob acá, en vez de dejar que pdf.js lo
-   intente solo (ahí es donde avisa "Setting up fake worker" y se pasa al hilo
-   principal). Si algo de esto falla, se precarga el worker en la página para
-   que ese modo de respaldo arranque sin dar vueltas. */
-let pdfEngine = null;
-function ensurePdfEngine(){
-  if (pdfEngine) return pdfEngine;
-  pdfEngine = (async () => {
-    if (!window.pdfjsLib) throw new Error("No se pudo cargar el lector de PDF. La primera vez hace falta conexión a internet.");
-    pdfjsLib.GlobalWorkerOptions.workerSrc = PDF_WORKER;
-    try {
-      const r = await fetch(PDF_WORKER, { cache:"force-cache" });
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      const src = await r.text();
-      if (src.length < 10000) throw new Error("archivo incompleto");
-      const w = new Worker(URL.createObjectURL(new Blob([src], { type:"text/javascript" })));
-      pdfjsLib.GlobalWorkerOptions.workerPort = w;
-      pdfEngineMode = "worker";
-    } catch(e){
-      pdfjsLib.GlobalWorkerOptions.workerPort = null;
-      try { if (!window.pdfjsWorker) await loadScript(PDF_WORKER); pdfEngineMode = "hilo principal"; }
-      catch(e2){ pdfEngineMode = "hilo principal (carga diferida)"; }
-    }
-  })();
-  return pdfEngine;
-}
-let pdfEngineMode = "";
-/* con worker real se dejan pasar los avisos de pdf.js; en el modo de respaldo
-   el único aviso esperable es el de "fake worker", que no aporta nada */
-function pdfVerbosity(){ return pdfEngineMode === "worker" ? 1 : 0; }
-
-/* El PDF se abre una sola vez por archivo y se renderiza página por página:
-   un escaneo de 300 ppp se dibuja a su resolución real, que es lo que necesita
-   el OCR para leer una cédula chica dentro de una hoja. */
-const pdfDocs = new Map();
-async function pdfDocOf(file){
-  await ensurePdfEngine();
-  if (!pdfDocs.has(file)){
-    pdfDocs.set(file, (async () => {
-      const data = new Uint8Array(await file.arrayBuffer());
-      return pdfjsLib.getDocument({ data, isEvalSupported:false, verbosity: pdfVerbosity() }).promise;
-    })());
-  }
-  return pdfDocs.get(file);
-}
-async function pdfPageCount(file){ return (await pdfDocOf(file)).numPages; }
-async function pdfPageToCanvas(file, index, targetW){
-  const pdf = await pdfDocOf(file);
-  if (index >= pdf.numPages) throw new Error("El PDF no tiene esa página.");
-  const page = await pdf.getPage(index + 1);
-  const base = page.getViewport({ scale: 1 });
-  const scale = Math.min(5, Math.max(1.4, (targetW || 2400) / base.width));
-  const vp = page.getViewport({ scale });
-  const c = document.createElement("canvas");
-  c.width = Math.round(vp.width); c.height = Math.round(vp.height);
-  const ctx = c.getContext("2d", { willReadFrequently:true });
-  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
-  await page.render({ canvasContext: ctx, viewport: vp }).promise;
-  page.cleanup();
-  return c;
-}
-async function pdfPagesToCanvases(file, maxPages, targetW){
-  const n = Math.min(await pdfPageCount(file), maxPages || 25);
-  const out = [];
-  for (let i = 0; i < n; i++) out.push(await pdfPageToCanvas(file, i, targetW));
-  return out;
-}
-
-async function imageToCanvas(file){
-  let bmp = null;
-  try { bmp = await createImageBitmap(file); }
-  catch(e){
-    bmp = await new Promise((res, rej) => {
-      const url = URL.createObjectURL(file);
-      const im = new Image();
-      im.onload = () => { URL.revokeObjectURL(url); res(im); };
-      im.onerror = () => { URL.revokeObjectURL(url); rej(new Error("No se pudo abrir la imagen.")); };
-      im.src = url;
-    });
-  }
-  const w0 = bmp.width || bmp.naturalWidth, h0 = bmp.height || bmp.naturalHeight;
-  if (!w0 || !h0) throw new Error("Imagen sin dimensiones legibles.");
-  const target = Math.min(2400, Math.max(1500, w0));
-  const k = target / w0;
-  const c = document.createElement("canvas");
-  c.width = Math.round(w0 * k); c.height = Math.round(h0 * k);
-  const ctx = c.getContext("2d", { willReadFrequently:true });
-  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(bmp, 0, 0, c.width, c.height);
-  if (bmp.close) bmp.close();
-  return c;
-}
-
-/* ============================================================
-   5b. Visión: rotar, recortar, encontrar tarjetas y grillas
-   ============================================================ */
-function newCanvas(w, h){ const c = document.createElement("canvas"); c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h)); return c; }
-function ctx2d(c){ return c.getContext("2d", { willReadFrequently:true }); }
-function rotateCanvas(src, deg){
-  deg = ((deg % 360) + 360) % 360;
-  if (!deg) return src;
-  const swap = deg === 90 || deg === 270;
-  const c = newCanvas(swap ? src.height : src.width, swap ? src.width : src.height);
-  const g = ctx2d(c);
-  g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
-  g.translate(c.width / 2, c.height / 2);
-  g.rotate(deg * Math.PI / 180);
-  g.drawImage(src, -src.width / 2, -src.height / 2);
-  return c;
-}
-function cropCanvas(src, x, y, w, h){
-  x = Math.max(0, Math.floor(x)); y = Math.max(0, Math.floor(y));
-  w = Math.max(1, Math.min(src.width - x, Math.ceil(w))); h = Math.max(1, Math.min(src.height - y, Math.ceil(h)));
-  const c = newCanvas(w, h);
-  const g = ctx2d(c); g.fillStyle = "#fff"; g.fillRect(0, 0, w, h);
-  g.drawImage(src, x, y, w, h, 0, 0, w, h);
-  return c;
-}
-function scaleCanvas(src, k){
-  const c = newCanvas(src.width * k, src.height * k);
-  const g = ctx2d(c); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = "high";
-  g.drawImage(src, 0, 0, c.width, c.height);
-  return c;
-}
-function freeCanvas(c){ if (c && c.width){ c.width = 1; c.height = 1; } }
-function grayOf(src, maxW){
-  const k = Math.min(1, maxW / src.width);
-  const c = k < 1 ? scaleCanvas(src, k) : src;
-  const d = ctx2d(c).getImageData(0, 0, c.width, c.height).data;
-  const w = c.width, h = c.height;
-  const g = new Uint8Array(w * h);
-  for (let i = 0, j = 0; i < g.length; i++, j += 4) g[i] = (d[j] * 0.299 + d[j + 1] * 0.587 + d[j + 2] * 0.114) | 0;
-  if (c !== src) freeCanvas(c);
-  return { g, w, h, k };
-}
-
-/* Varias cédulas en una hoja: corte recursivo por las franjas blancas que las
-   separan (XY-cut). Tolera la línea fina que deja el escáner a lo largo de la
-   hoja, porque una franja cuenta como vacía aunque la cruce un trazo delgado. */
-function segmentCards(src){
-  const { g, w, h, k } = grayOf(src, 700);
-  const ink = new Uint8Array(w * h);
-  for (let i = 0; i < ink.length; i++) ink[i] = g[i] < 225 ? 1 : 0;
-  const rowSum = (x0, y0, x1, y1) => { const p = new Int32Array(y1 - y0); for (let y = y0; y < y1; y++){ let t = 0; const o = y * w; for (let x = x0; x < x1; x++) t += ink[o + x]; p[y - y0] = t; } return p; };
-  const colSum = (x0, y0, x1, y1) => { const p = new Int32Array(x1 - x0); for (let y = y0; y < y1; y++){ const o = y * w; for (let x = x0; x < x1; x++) p[x - x0] += ink[o + x]; } return p; };
-  const gapCut = (prof, L) => {
-    const tol = Math.max(3, Math.floor(0.03 * L));
-    let bi = -1, bj = -1, i = 0;
-    while (i < prof.length){
-      if (prof[i] <= tol){
-        let j = i; while (j < prof.length && prof[j] <= tol) j++;
-        if (i > 0 && j < prof.length && j - i >= 6 && (j - i) > (bj - bi)){ bi = i; bj = j; }
-        i = j;
-      } else i++;
-    }
-    return bi < 0 ? -1 : (bi + bj) >> 1;
-  };
-  const leaves = [];
-  const cut = (x0, y0, x1, y1, depth) => {
-    if (depth > 14 || x1 - x0 < 8 || y1 - y0 < 8) return;
-    const rp = rowSum(x0, y0, x1, y1), cp = colSum(x0, y0, x1, y1);
-    let a = 0; while (a < rp.length && !rp[a]) a++;
-    let b = rp.length - 1; while (b >= 0 && !rp[b]) b--;
-    let c0 = 0; while (c0 < cp.length && !cp[c0]) c0++;
-    let c1 = cp.length - 1; while (c1 >= 0 && !cp[c1]) c1--;
-    if (a > b || c0 > c1) return;
-    const X0 = x0 + c0, X1 = x0 + c1 + 1, Y0 = y0 + a, Y1 = y0 + b + 1;
-    const hc = gapCut(rowSum(X0, Y0, X1, Y1), X1 - X0);
-    if (hc > 0){ cut(X0, Y0, X1, Y0 + hc, depth + 1); cut(X0, Y0 + hc, X1, Y1, depth + 1); return; }
-    const vc = gapCut(colSum(X0, Y0, X1, Y1), Y1 - Y0);
-    if (vc > 0){ cut(X0, Y0, X0 + vc, Y1, depth + 1); cut(X0 + vc, Y0, X1, Y1, depth + 1); return; }
-    leaves.push([X0, Y0, X1, Y1]);
-  };
-  cut(0, 0, w, h, 0);
-  const pad = 4;
-  const cards = leaves.filter(([x0, y0, x1, y1]) => {
-    const bw = x1 - x0, bh = y1 - y0;
-    if (bw * bh < 0.02 * w * h || Math.min(bw, bh) < 0.08 * Math.min(w, h)) return false;
-    const ar = Math.max(bw, bh) / Math.min(bw, bh);
-    return ar >= 1.1 && ar <= 2.3;
-  }).map(([x0, y0, x1, y1]) => ({
-    x: Math.max(0, (x0 - pad) / k), y: Math.max(0, (y0 - pad) / k),
-    w: (x1 - x0 + 2 * pad) / k, h: (y1 - y0 + 2 * pad) / k,
-    area: (x1 - x0) * (y1 - y0) / (w * h)
-  }));
-  return cards;
-}
-
-/* Grilla de una tabla escaneada: las líneas son tramos largos de tinta, aunque
-   el escaneo las deje cortadas. Las filas se separan con líneas horizontales
-   regulares; las columnas, con verticales que recorren la tabla. */
-function longRunProfile(g, w, horizontal, x0, y0, x1, y1, gap, minrun){
-  const n = horizontal ? (y1 - y0) : (x1 - x0);
-  const len = horizontal ? (x1 - x0) : (y1 - y0);
-  const out = new Int32Array(n);
-  for (let i = 0; i < n; i++){
-    let total = 0, start = -1, last = -1;
-    for (let j = 0; j < len; j++){
-      const v = horizontal ? g[(y0 + i) * w + x0 + j] : g[(y0 + j) * w + x0 + i];
-      if (v < 200){
-        if (start < 0) start = j;
-        else if (j - last > gap){ const L = last - start + 1; if (L >= minrun) total += L; start = j; }
-        last = j;
-      }
-    }
-    if (start >= 0){ const L = last - start + 1; if (L >= minrun) total += L; }
-    out[i] = total;
-  }
-  return out;
-}
-function linePositions(prof, thr){
-  const pos = []; let s = -1, lastOn = -10;
-  for (let i = 0; i <= prof.length; i++){
-    const on = i < prof.length && prof[i] >= thr;
-    if (on){ if (s < 0 || i - lastOn > 2){ if (s >= 0) pos.push((s + lastOn) >> 1); s = i; } lastOn = i; }
-  }
-  if (s >= 0) pos.push((s + lastOn) >> 1);
-  return pos;
-}
-function mergeClose(pos, d){
-  const out = [];
-  for (const p of pos){ if (out.length && p - out[out.length - 1] < d) out[out.length - 1] = (out[out.length - 1] + p) >> 1; else out.push(p); }
-  return out;
-}
-const medianOf = a => { const b = a.slice().sort((x, y) => x - y); return b.length ? b[b.length >> 1] : 0; };
-function detectGrid(src){
-  const { g, w, h, k } = grayOf(src, 2600);
-  const hp = longRunProfile(g, w, true, 0, 0, w, h, 6, 60);
-  let rows = linePositions(hp, 0.25 * w);
-  if (rows.length < 3) return null;
-  const sp = medianOf(rows.slice(1).map((v, i) => v - rows[i]));
-  rows = mergeClose(rows, Math.max(8, 0.35 * sp));
-  if (rows.length < 3) return null;
-  const top = rows[0], bot = rows[rows.length - 1];
-  const vp = longRunProfile(g, w, false, 0, top, w, bot + 1, 6, Math.max(30, Math.round(0.5 * sp)));
-  const cols = mergeClose(linePositions(vp, 0.30 * (bot - top)), 12);
-  if (cols.length < 3) return null;
-  return { rows: rows.map(v => v / k), cols: cols.map(v => v / k), rowH: sp / k };
-}
-/* cuántas líneas largas hay en cada sentido, para saber si la tabla está acostada */
-function lineAxis(src){
-  const { g, w, h } = grayOf(src, 1200);
-  const hp = longRunProfile(g, w, true, 0, 0, w, h, 4, 25);
-  const vp = longRunProfile(g, w, false, 0, 0, w, h, 4, 25);
-  return { h: linePositions(hp, 0.25 * w).length, v: linePositions(vp, 0.25 * h).length };
-}
-
-/* ------- preproceso: gris + estiramiento de contraste (+ umbral en modo intensivo) ------- */
-function preprocess(src, hard){
-  const ctx = src.getContext("2d", { willReadFrequently:true });
-  const img = ctx.getImageData(0, 0, src.width, src.height);
-  const d = img.data, n = src.width * src.height;
-  const hist = new Uint32Array(256);
-  for (let i = 0; i < n; i++){
-    const o = i * 4;
-    const g = (d[o] * 0.299 + d[o + 1] * 0.587 + d[o + 2] * 0.114) | 0;
-    d[o] = d[o + 1] = d[o + 2] = g;
-    hist[g]++;
-  }
-  const cut = Math.max(1, Math.floor(n * 0.02));
-  let lo = 0, hi = 255, acc = 0;
-  for (let v = 0; v < 256; v++){ acc += hist[v]; if (acc > cut){ lo = v; break; } }
-  acc = 0;
-  for (let v = 255; v >= 0; v--){ acc += hist[v]; if (acc > cut){ hi = v; break; } }
-  if (hi - lo < 24){ lo = 0; hi = 255; }
-  const lut = new Uint8Array(256);
-  for (let v = 0; v < 256; v++){
-    let x = (v - lo) * 255 / (hi - lo);
-    lut[v] = x < 0 ? 0 : x > 255 ? 255 : x | 0;
-  }
-  if (hard){
-    /* Otsu sobre el histograma ya estirado */
-    const h2 = new Uint32Array(256);
-    for (let v = 0; v < 256; v++) h2[lut[v]] += hist[v];
-    let sum = 0; for (let v = 0; v < 256; v++) sum += v * h2[v];
-    let sumB = 0, wB = 0, best = -1, thr = 128;
-    for (let v = 0; v < 256; v++){
-      wB += h2[v]; if (!wB) continue;
-      const wF = n - wB; if (!wF) break;
-      sumB += v * h2[v];
-      const mB = sumB / wB, mF = (sum - sumB) / wF;
-      const between = wB * wF * (mB - mF) * (mB - mF);
-      if (between > best){ best = between; thr = v; }
-    }
-    const t = Math.min(235, Math.max(60, thr + 6));
-    for (let v = 0; v < 256; v++) lut[v] = lut[v] >= t ? 255 : 0;
-  }
-  for (let i = 0; i < n; i++){
-    const o = i * 4;
-    const g = lut[d[o]];
-    d[o] = d[o + 1] = d[o + 2] = g;
-  }
-  ctx.putImageData(img, 0, 0);
-  return src;
-}
-function thumbOf(canvas, max){
-  const k = Math.min(1, (max || 520) / canvas.width);
-  const c = document.createElement("canvas");
-  c.width = Math.max(1, Math.round(canvas.width * k));
-  c.height = Math.max(1, Math.round(canvas.height * k));
-  c.getContext("2d").drawImage(canvas, 0, 0, c.width, c.height);
-  try { return c.toDataURL("image/jpeg", 0.72); } catch(e){ return ""; }
-}
-
-/* ============================================================
-   6. Extracción: MRZ, números de documento y nombres
-   ============================================================ */
-const BOILER = new Set(("REPUBLICA ARGENTINA MINISTERIO INTERIOR OBRAS PUBLICAS VIVIENDA REGISTRO NACIONAL PERSONAS " +
-"DOCUMENTO IDENTIDAD SURNAME NAME GIVEN NAMES SEXO SEX NACIONALIDAD NATIONALITY FECHA NACIMIENTO BIRTH DATE " +
-"EJEMPLAR SPECIMEN TRAMITE EMISION ISSUE VENCIMIENTO EXPIRY DOMICILIO LUGAR PLACE FIRMA TITULAR HOLDER " +
-"PASAPORTE PASSPORT TYPE TIPO CODE CODIGO AUTHORITY AUTORIDAD EMISORA ESPECIMEN PROVINCIA DEPARTAMENTO " +
-"NRO NUM NUMERO NUMBER DNI CUIL CUIT IDENTIFICACION ARG ARGENTINA ARGENTINO ARGENTINA").split(/\s+/));
-
-function isNameish(line){
-  if (/\d/.test(line)) return false;
-  const toks = normName(line).split(" ").filter(Boolean);
-  if (!toks.length || toks.length > 6) return false;
-  const good = toks.filter(t => t.length >= 2);
-  if (!good.length) return false;
-  const boiler = good.filter(t => BOILER.has(t)).length;
-  if (boiler >= Math.ceil(good.length / 2)) return false;
-  return good.join("").length >= 4;
-}
-
-function parseMRZ(text){
-  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => (l.match(/</g) || []).length >= 4);
-  if (!lines.length) return null;
-  const up = lines.map(l => l.toUpperCase().replace(/\s+/g, ""));
-  const out = { doc:"", name:"", lines: lines.slice(0, 3) };
-  /* TD1/TD3: tipo + pais + campo de documento de 9 caracteres (el siguiente es el verificador) */
-  for (const l of up){
-    const m = l.match(/^[IPAC][A-Z<]?[A-Z<]{3}([A-Z0-9<]{9})/);
-    if (m){
-      const d = m[1].replace(/O/g, "0").replace(/[IL]/g, "1").replace(/[^0-9]/g, "");
-      if (d.length >= 6 && d.length <= 9){ out.doc = d; break; }
-    }
-  }
-  if (!out.doc){
-    for (const l of up){
-      const m = l.match(/(\d{6,9})</);
-      if (m){ out.doc = m[1]; break; }
-    }
-  }
-  for (const l of up){
-    if (!/^[A-Z0-9<]+$/.test(l)) continue;
-    let v = l;
-    /* el prefijo de 5 caracteres (P<ARG, IDARG) no es parte del nombre.
-       Un apellido jamas lleva "<" en la segunda posicion, asi que la forma
-       de pasaporte es inequivoca; la de documento se recorta solo si la
-       linea trae digitos, para no mutilar un apellido como IDALGO. */
-    if (/^[A-Z]<[A-Z]{3}/.test(v)) v = v.slice(5);
-    else if (/^I[DPAC][A-Z]{3}/.test(v) && /\d/.test(v)) v = v.slice(5);
-    const parts = v.split("<<").filter(Boolean);
-    if (parts.length >= 2){
-      const nm = (parts[0] + " " + parts[1]).replace(/</g, " ").replace(/\s+/g, " ").trim();
-      if (nameTokens(nm).length >= 2){ out.name = nm; break; }
-    }
-  }
-  return (out.doc || out.name) ? out : null;
-}
-
-const DOC_LABEL = /(DOCUMENTO|DOCUMENT|C[ÉE]DULA|C\s?\.?\s?I\s?\.?(?![A-Z])|D\s?\.?\s?N\s?\.?\s?I|DNI|IDENTIDAD|N[º°O]\s*DOC|NRO\.?\s*DOC)/i;
-const DOC_PENALTY = /(TRAMITE|TRÁMITE|EJEMPLAR|CUIL|CUIT|CODIGO|CÓDIGO|BARRAS|TEL|CP\b|C\.P|CUENTA|ORDEN)/i;
-
-function extractDocs(text){
-  const lines = text.split(/\r?\n/);
-  const found = new Map();
-  const push = (base, dv, score, ctx) => {
-    const b = onlyDigits(base);
-    if (b.length < 5 || b.length > 9) return;
-    const k = b + "-" + (dv || "");
-    const prev = found.get(k);
-    if (!prev || prev.score < score) found.set(k, { base:b, dv:(dv || "").toUpperCase(), score, ctx:(ctx || "").trim().slice(0, 70) });
-  };
-  for (let i = 0; i < lines.length; i++){
-    const rawLine = lines[i];
-    /* saca fechas para que no aporten dígitos sueltos */
-    const line = rawLine.replace(/\b\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}\b/g, " ");
-    if ((rawLine.match(/</g) || []).length >= 4) continue;       /* MRZ va aparte */
-    const near = DOC_LABEL.test(rawLine) || (i > 0 && DOC_LABEL.test(lines[i - 1])) || (i > 1 && DOC_LABEL.test(lines[i - 2]));
-    const pen = DOC_PENALTY.test(rawLine) || (i > 0 && DOC_PENALTY.test(lines[i - 1])) ? 55 : 0;
-    /* número con separadores de miles o corrido, con el verificador opcional.
-       El OCR convierte puntos en comas o les pega un espacio: "3 472. 875-9". */
-    const re = /(?<!\d)(\d{1,3}(?:[.,\s'’·]{1,2}\d{3})+|\d{5,9})(?:\s*[-–—~]\s*([0-9kK]))?(?!\d)/g;
-    let m;
-    while ((m = re.exec(line)) !== null){
-      const agrupado = /[.,\s'’·]/.test(m[1]);
-      const b = onlyDigits(m[1]);
-      let sc = agrupado ? 40 : (b.length === 8 ? 22 : b.length === 7 ? 20 : b.length === 6 ? 14 : 6);
-      if (m[2]) sc += 18;                 /* el guion con verificador es muy distintivo */
-      if (near) sc += 55;
-      if (cedulaOk({ base:b, dv:m[2] || "" })) sc += 30;
-      push(b, m[2], sc - pen, rawLine);
-    }
-    /* el guion se perdió y quedó un espacio: "3.472.875 9" sólo vale si cierra */
-    const re2 = /(?<!\d)(\d{1,3}(?:[.,\s'’·]{1,2}\d{3}){2})\s+(\d)(?![\d.,])/g;
-    while ((m = re2.exec(line)) !== null){
-      const b = onlyDigits(m[1]);
-      if (dvCedulaUy(b) === m[2]) push(b, m[2], 60 + (near ? 55 : 0) - pen, rawLine);
-    }
-  }
-  return Array.from(found.values()).sort((a, b) => b.score - a.score).slice(0, 8);
-}
-
-function extractNames(text){
-  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  const out = [];
-  const addIf = s => { const v = String(s || "").trim(); if (v && isNameish(v) && !out.includes(v)) out.push(v); };
-  let ape = "", nom = "";
-  for (let i = 0; i < lines.length; i++){
-    const L = lines[i];
-    const bare = L.replace(/^.*?[:：]/, "").trim();
-    if (/^(APELLIDO|APELLIDOS|SURNAME)/i.test(L)){
-      if (bare !== L.trim() && isNameish(bare)) ape = ape || bare;
-      else for (let j = i + 1; j <= i + 2 && j < lines.length; j++) if (isNameish(lines[j])){ ape = ape || lines[j]; break; }
-    }
-    if (/^(NOMBRES?|GIVEN\s*NAMES?|PRENOMS?)/i.test(L)){
-      if (bare !== L.trim() && isNameish(bare)) nom = nom || bare;
-      else for (let j = i + 1; j <= i + 2 && j < lines.length; j++) if (isNameish(lines[j])){ nom = nom || lines[j]; break; }
-    }
-  }
-  if (ape || nom) out.push([ape, nom].filter(Boolean).join(" ").trim());
-  lines.forEach(addIf);
-  return out.slice(0, 10);
-}
-
-function analyzeText(item){
-  const text = item.text || "";
-  item.mrz = parseMRZ(text);
-  item.docs = extractDocs(text);
-  if (item.mrz && item.mrz.doc){
-    const md = onlyDigits(item.mrz.doc);
-    if (md.length === 9) item.docs.unshift({ base: md.slice(0, 8), dv:"", score: 120, ctx:"MRZ, sin el último dígito" });
-    item.docs.unshift({ base: md, dv:"", score: 130, ctx:"Zona de lectura mecánica (MRZ)" });
-  }
-  item.names = extractNames(text);
-  if (item.mrz && item.mrz.name) item.names.unshift(item.mrz.name);
-  const vistos = new Set();
-  item.names = item.names.filter(n => { const k = normName(n); if (!k || vistos.has(k)) return false; vistos.add(k); return true; });
-  const seen = new Set();
-  item.docs = item.docs.filter(d => {
-    const k = stripZeros(d.base) + "-" + (d.dv || "");
-    if (!stripZeros(d.base) || seen.has(k)) return false;
-    seen.add(k); return true;
-  });
-  const palabras = normName(text).split(" ").filter(Boolean);
-  item.textTokens = Array.from(new Set(palabras.filter(t => t.length >= 3)));
-  const pares = new Set();
-  for (let i = 0; i + 1 < palabras.length; i++){
-    const a = palabras[i], b = palabras[i + 1];
-    if (a.length + b.length >= 6) pares.add(a + b);
-    if (i + 2 < palabras.length && palabras[i + 1].length <= 3) pares.add(a + b + palabras[i + 2]);  /* MARIA DEL ROSARIO */
-  }
-  item.textBigrams = Array.from(pares);
-  item.letters = (text.match(/[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g) || []).length;
-  return item;
-}
-
-/* ============================================================
-   7. OCR
-   ============================================================ */
-/* El motor de OCR corre dentro de un Web Worker creado a partir de un blob.
-   Abierto como archivo local eso funciona; dentro de un visor con sandbox
-   (por ejemplo la vista previa del chat) el navegador lo bloquea. Conviene
-   saberlo al abrir la página y no cuando ya cargaron cien escaneos. */
-const ENV = { workers: null, motivo: "" };
-function checkWorkers(){
-  return new Promise(res => {
-    let w = null, u = "";
-    const done = (ok, motivo) => {
-      ENV.workers = ok; ENV.motivo = motivo || "";
-      try { if (w) w.terminate(); } catch(e){}
-      try { if (u) URL.revokeObjectURL(u); } catch(e){}
-      res(ok);
-    };
-    try {
-      u = URL.createObjectURL(new Blob(["self.onmessage=()=>self.postMessage(1)"], { type:"application/javascript" }));
-      w = new Worker(u);
-      const t = setTimeout(() => done(false, "el worker no respondió"), 2500);
-      w.onmessage = () => { clearTimeout(t); done(true); };
-      w.onerror = e => { clearTimeout(t); done(false, (e && e.message) || "el navegador rechazó el worker"); };
-      w.postMessage(1);
-    } catch(e){ done(false, (e && e.message) || String(e)); }
-  });
-}
-const CDN_BASES = ["https://cdn.jsdelivr.net/npm/", "https://unpkg.com/"];
-const TESS_VER = "5.1.1";
-const LANG_HOSTS = ["https://tessdata.projectnaptha.com/4.0.0"];
-const hostOf = u => { try { return new URL(u).host; } catch(e){ return u; } };
-function tessOptions(base, lang){
-  const langs = [];
-  LANG_HOSTS.forEach(h => langs.push(h));
-  /* el host de datos de idioma tiene un solo archivo por paquete, así que el
-     respaldo del CDN sólo sirve cuando se pidió un idioma solo */
-  if (!lang.includes("+")) langs.push(`${base}@tesseract.js-data/${lang}@1.0.0/4.0.0`);
-  return {
-    workerPath: `${base}tesseract.js@${TESS_VER}/dist/worker.min.js`,
-    corePath: `${base}tesseract.js-core@${TESS_VER}`,
-    langs
-  };
-}
-const ENGINE_STEPS = {
-  "loading tesseract core": "Descargando el motor (2,8 MB)",
-  "initializing tesseract": "Iniciando el motor",
-  "loading language traineddata": "Descargando el idioma (8 MB)",
-  "loading language traineddata (from cache)": "Leyendo el idioma de la caché",
-  "initializing api": "Preparando el reconocimiento",
-  "recognizing text": "Leyendo"
-};
-
-const SIN_WORKERS = "Este entorno bloquea los Web Workers, que es donde corre el motor de OCR. Descargá el archivo y abrilo directamente en tu navegador (doble clic): ahí sí funciona.";
-const TESS = {
-  pool: [], lang: "", growing: null, lastError: "",
-  /* Un worker alcanza para empezar: los demás se suman después, con el
-     motor y el idioma ya en caché, así nadie espera cuatro descargas. */
-  async ready(lang, onStatus){
-    if (this.lang !== lang) await this.dispose();
-    this.lang = lang;
-    if (this.pool.length) return;
-    this.pool.push(await this.spawn(lang, onStatus, 150000));
-  },
-  async grow(lang, total, onStatus){
-    if (this.growing) return this.growing;
-    this.growing = (async () => {
-      while (this.pool.length < total && this.lang === lang){
-        try { this.pool.push(await this.spawn(lang, null, 90000)); }
-        catch(e){ break; }   /* con uno solo la corrida igual termina */
-        if (onStatus) onStatus();
-      }
-      this.growing = null;
-    })();
-    return this.growing;
-  },
-  async spawn(lang, onStatus, ms){
-    if (ENV.workers === false) throw new Error(SIN_WORKERS);
-    const fallos = [];
-    for (const base of CDN_BASES){
-      const o = tessOptions(base, lang);
-      for (const langPath of o.langs){
-        try { return await this.make(lang, { workerPath:o.workerPath, corePath:o.corePath, langPath }, onStatus, ms); }
-        catch(e){ fallos.push(`${hostOf(base)}: ${(e && e.message) || e}`); }
-      }
-    }
-    this.lastError = fallos.join(" · ");
-    throw new Error("No se pudo iniciar el motor de OCR. " + fallos.join(" · ") +
-      ". La primera vez hace falta internet; si la red tiene restricciones, hay que habilitar cdn.jsdelivr.net y tessdata.projectnaptha.com.");
-  },
-  make(lang, paths, onStatus, ms){
-    if (!window.Tesseract) return Promise.reject(new Error("no se cargó tesseract.js"));
-    let timer = null;
-    const p = Tesseract.createWorker(lang, 1, {
-      ...paths,
-      logger: msg => { if (onStatus && msg && msg.status) onStatus(msg); }
-    });
-    const limite = new Promise((_, rej) => {
-      timer = setTimeout(() => rej(new Error(`no respondió en ${Math.round(ms / 1000)} s`)), ms);
-    });
-    return Promise.race([p, limite]).then(async w => {
-      clearTimeout(timer);
-      await w.setParameters({ tessedit_pageseg_mode: "3", preserve_interword_spaces: "1" });
-      return { w, busy:false };
-    }, err => {
-      clearTimeout(timer);
-      p.then(w => { try { w.terminate(); } catch(e){} }).catch(() => {});
-      throw err;
-    });
-  },
-  async take(){
-    while (true){
-      const free = this.pool.find(x => !x.busy);
-      if (free){ free.busy = true; return free; }
-      await new Promise(r => setTimeout(r, 40));
-    }
-  },
-  async dispose(){
-    const old = this.pool; this.pool = []; this.growing = null;
-    for (const x of old){ try { await x.w.terminate(); } catch(e){} }
-  },
-  async init(lang, onStatus){ return this.ready(lang || this.lang || S.lang, onStatus); }
-};
-function maxWorkers(){ return Math.max(1, Math.min(3, (navigator.hardwareConcurrency || 4) - 1)); }
-
-/* ---------- lectura de escaneos: hoja → cédulas → orientación → OCR ---------- */
-const isPdfItem = it => /\.pdf$/i.test(it.fileName) || (it.file && it.file.type === "application/pdf");
-const PSM_PASADAS = ["6", "11", "3"];
-
-function cloneCanvas(src){ const c = newCanvas(src.width, src.height); ctx2d(c).drawImage(src, 0, 0); return c; }
-
-/* el lienzo de origen de un escaneo; una cédula recortada se rehace desde su hoja si hace falta */
-async function sourceCanvas(item){
-  if (item.cardCanvas) return item.cardCanvas;
-  const page = isPdfItem(item) ? await pdfPageToCanvas(item.file, item.page, 2400) : await imageToCanvas(item.file);
-  if (!item.crop) return page;
-  const r = item.crop;
-  const c = cropCanvas(page, r.x, r.y, r.w, r.h);
-  freeCanvas(page);
-  return c;
-}
-
-async function expandPdfPages(){
-  /* un PDF con varias páginas se divide en un escaneo por página */
-  const extra = [];
-  for (const it of S.scans.slice()){
-    if (!isPdfItem(it) || it.pages > 1 || it.page > 0 || it.isCard) continue;
-    try {
-      const n = Math.min(await pdfPageCount(it.file), 40);
-      it.pages = n;
-      if (n > 1){
-        it.label = `${it.fileName} · pág. 1`;
-        for (let p = 1; p < n; p++){
-          extra.push({ ...it, id:"s" + (++S.seq), page:p, pages:n, label:`${it.fileName} · pág. ${p + 1}`,
-            status:"pending", text:"", docs:[], names:[], mrz:null, textTokens:[], textBigrams:[], thumb:"", personIdx:-1, verdict:"", manualDoc:"", note:"" });
-        }
-      }
-    } catch(e){ /* si el PDF no abre, el OCR reportará el error */ }
-  }
-  if (extra.length) S.scans = S.scans.concat(extra);
-}
-
-/* ¿el documento ya quedó resuelto? Cédula con verificador válido que además
-   corresponde a alguien de la planilla con el nombre coincidente. */
-function cedulaOk(d){
-  if (d.dv) return /^[0-9]$/.test(d.dv) && dvCedulaUy(d.base) === d.dv;
-  return d.base.length >= 7 && d.base.length <= 8 && dvCedulaUy(d.base.slice(0, -1)) === d.base.slice(-1);
-}
-function lecturaResuelta(probe){
-  const validos = probe.docs.filter(cedulaOk);
-  if (!validos.length) return false;
-  if (!S.people.length) return probe.names.length > 0;
-  for (const d of validos){
-    for (const k of scanKeys(d.base, d.dv)){
-      const p = S.keyIndex && S.keyIndex.get(k);
-      if (p && nameScoreFor(probe, p) >= 0.8) return true;
-    }
-  }
-  return false;
-}
-
-async function readRotated(slot, src, rot, item, hard){
-  const rotado = rotateCanvas(src, rot);
-  const L = Math.max(rotado.width, rotado.height);
-  const k = L < 1300 ? 1300 / L : (L > 2600 ? 2600 / L : 1);
-  const work = k !== 1 ? scaleCanvas(rotado, k) : cloneCanvas(rotado);
-  if (rotado !== src) freeCanvas(rotado);
-  const thumb = thumbOf(work, 560);
-  preprocess(work, hard);
-  const textos = [];
-  let conf = 0, n = 0;
-  const probe = { text:"", docs:[], names:[], mrz:null, textTokens:[], textBigrams:[] };
-  let orientacionMala = false;
-  for (const psm of PSM_PASADAS){
-    await slot.w.setParameters({ tessedit_pageseg_mode: psm, tessedit_char_whitelist: "" });
-    const { data } = await slot.w.recognize(work);
-    textos.push((data && data.text) || "");
-    conf += (data && data.confidence) || 0; n++;
-    probe.text = textos.join("\n\n");
-    analyzeText(probe);
-    if (lecturaResuelta(probe)) break;
-    /* con la primera pasada ya se ve si la orientación es la equivocada */
-    if (n === 1 && !probe.docs.length && conf < 45){ orientacionMala = true; break; }
-  }
-  /* si el número todavía no aparece, una pasada en blanco y negro puro suele
-     rescatar los dígitos que el fondo de seguridad de la cédula tapa */
-  if (!orientacionMala && !probe.docs.some(cedulaOk) && !hard){
-    preprocess(work, true);
-    for (const psm of ["6", "11"]){
-      await slot.w.setParameters({ tessedit_pageseg_mode: psm, tessedit_char_whitelist: "" });
-      const { data } = await slot.w.recognize(work);
-      textos.push((data && data.text) || "");
-      probe.text = textos.join("\n\n");
-      analyzeText(probe);
-      if (probe.docs.some(cedulaOk)) break;
-    }
-  }
-  freeCanvas(work);
-  const validos = probe.docs.filter(cedulaOk).length;
-  return {
-    rot, text: probe.text, conf: Math.round(conf / n), thumb,
-    good: validos > 0, score: (validos ? 1000 : 0) + (probe.docs.length ? 15 : 0) + conf / n
-  };
-}
-
-async function readDocument(slot, src, item, hard){
-  const vertical = src.height > src.width * 1.08;
-  let rots = item.isCard ? (vertical ? [270, 90, 0, 180] : [0, 180, 270, 90]) : [0, 270, 90, 180];
-  const pref = item.parentId && S.rotPref[item.parentId];
-  if (pref != null) rots = [pref].concat(rots.filter(r => r !== pref));
-  let best = null, dePref = null;
-  for (const rot of rots){
-    const r = await readRotated(slot, src, rot, item, hard);
-    if (rot === pref) dePref = r;
-    if (!best || r.score > best.score) best = r;
-    if (r.good) break;
-  }
-  /* las cédulas de una misma hoja están todas giradas igual: si ninguna
-     orientación dio un número válido, se confía en la de sus hermanas */
-  if (!best.good && dePref) best = dePref;
-  await slot.w.setParameters({ tessedit_pageseg_mode: "3", tessedit_char_whitelist: "" });
-  if (best.good && item.parentId) S.rotPref[item.parentId] = best.rot;
-  item.text = best.text;
-  item.conf = best.conf;
-  item.thumb = best.thumb;
-  item.rot = best.rot;
-  analyzeText(item);
-}
-
-function makeCardItem(parent, canvas, rect, i, total){
-  return {
-    id: "s" + (++S.seq), file: parent.file, fileName: parent.fileName, page: parent.page, pages: parent.pages,
-    label: `${parent.label} · cédula ${i} de ${total}`, status: "pending", text: "", conf: 0,
-    docs: [], names: [], mrz: null, textTokens: [], textBigrams: [], thumb: "",
-    manualDoc: "", personIdx: -1, verdict: "", nameScore: 0, note: "", read: "",
-    isCard: true, parentId: parent.id, cardCanvas: canvas, crop: rect
-  };
-}
-
-async function ocrOne(item, hard, enqueue){
-  let canvas = null;
-  try {
-    canvas = await sourceCanvas(item);
-    if (!item.isCard){
-      /* una hoja con varias cédulas se parte: cada una pasa a ser un escaneo propio */
-      const cards = segmentCards(canvas);
-      if (cards.length >= 2 && enqueue){
-        const hijos = cards.map((r, i) => makeCardItem(item, cropCanvas(canvas, r.x, r.y, r.w, r.h), { x:r.x, y:r.y, w:r.w, h:r.h }, i + 1, cards.length));
-        const at = S.scans.indexOf(item);
-        S.scans.splice(at + 1, 0, ...hijos);
-        item.status = "split"; item.splitInto = hijos.length;
-        enqueue(hijos);
-        return item;
-      }
-      if (cards.length === 1 && cards[0].area < 0.6){
-        const r = cards[0];
-        const c = cropCanvas(canvas, r.x, r.y, r.w, r.h);
-        freeCanvas(canvas); canvas = c;
-        item.isCard = true;
-      }
-    }
-    const slot = await TESS.take();
-    try { await readDocument(slot, canvas, item, hard); }
-    finally { slot.busy = false; }
-    item.status = "done";
-    item.hard = !!hard;
-  } catch(err){
-    item.status = "error";
-    item.error = (err && err.message) || String(err);
-  } finally {
-    if (canvas) freeCanvas(canvas);
-    item.cardCanvas = null;
-  }
-  return item;
-}
-
-/* ============================================================
-   8. Conciliación
-   ============================================================ */
-const scanById = id => S.scans.find(s => s.id === id);
-
-function nameScoreFor(scan, person){
-  if (!person.tokens.length) return 0;
-  let best = coverage(person.tokens, scan.textTokens, scan.textBigrams);
-  for (const n of scan.names){
-    const r = simNames(n, person.nombre);
-    if (r > best) best = r;
-  }
-  return best;
-}
-
-/* El OCR suele leer la cédula sin el guion ("12223331"). Si ese número se
-   corresponde con una persona cuya cédula es 1.222.333-1, se muestra como
-   la cédula que es y no como un número de ocho cifras. */
-function candDisp(c, p){
-  if (c.dv) return c.disp;
-  if (p && S.docModeEff === "cedula" && c.base.length >= 7 && stripZeros(c.base.slice(0, -1)) === p.key)
-    return fmtPair(c.base.slice(0, -1), c.base.slice(-1));
-  const k = canonDoc(c.base, "");
-  return fmtPair(k.base, k.dv);
-}
-
-function evaluateScan(s, people, byKey){
-  s.personIdx = -1; s.nameScore = 0; s.read = ""; s.readCtx = ""; s.note = "";
-  if (s.status === "error"){ s.verdict = "error"; return; }
-
-  const mkCand = (base, dv, score, ctx) => ({
-    base, dv: dv || "", disp: fmtPair(base, dv), key: stripZeros(base),
-    keys: scanKeys(base, dv || ""), score, ctx
-  });
-  const cands = s.docs.map(d => mkCand(d.base, d.dv, d.score, d.ctx)).filter(c => c.keys.size);
-  if (s.manualDoc){
-    const o = splitDoc(s.manualDoc);
-    if (o.base) cands.unshift(mkCand(o.base, o.dv, 999, "Número ingresado a mano"));
-  }
-
-  /* reasignación manual: manda sobre todo lo demás */
-  if (s.forcePerson != null && s.forcePerson >= 0 && people[s.forcePerson]){
-    const p = people[s.forcePerson];
-    s.personIdx = p.idx;
-    s.nameScore = nameScoreFor(s, p);
-    s.read = cands.length ? candDisp(cands[0], p) : "";
-    s.verdict = "manual";
-    s.note = "Vinculado a mano por quien revisa.";
-    return;
-  }
-
-  let best = null;
-  for (const c of cands){
-    const vistos = new Set();
-    for (const k of c.keys){
-      for (const p of (byKey.get(k) || [])){
-        if (vistos.has(p.idx)) continue;
-        vistos.add(p.idx);
-        const ns = nameScoreFor(s, p);
-        const total = ns * 2 + Math.min(c.score, 150) / 150;
-        if (!best || total > best.total) best = { p, c, ns, total, kind:"exact" };
-      }
-    }
-  }
-  /* El OCR confundió un dígito y el verificador ya no cierra: se prueban los
-     cambios típicos y sólo se acepta uno que cierre Y exista en la planilla. */
-  if (!best && S.docModeEff === "cedula"){
-    for (const c of cands){
-      if (cedulaOk(c)) continue;
-      for (const v of reparaciones(c)){
-        for (const k of personKeys(v.base, v.dv)){
-          for (const p of (byKey.get(k) || [])){
-            const ns = nameScoreFor(s, p);
-            const total = ns * 2 + 0.5;
-            if (!best || total > best.total) best = { p, c: mkCand(v.base, v.dv, c.score, c.ctx), ns, total, kind:"exact", reparado: c };
-          }
-        }
-      }
-    }
-  }
-  /* Se perdieron los primeros dígitos ("423.983-9" en vez de "4.423.983-9"):
-     vale si lo leído coincide con el final de un número de la planilla y el
-     nombre acompaña. Con 7 dígitos alcanza que el nombre coincida a medias. */
-  if (!best && S.docModeEff === "cedula"){
-    for (const c of cands){
-      const dig = c.base + (c.dv || "");
-      if (dig.length < 6) continue;
-      for (const p of people){
-        const pd = p.doc + (p.dv || "");
-        if (!(pd.length > dig.length && pd.endsWith(dig))) continue;
-        const ns = nameScoreFor(s, p);
-        if (ns < (dig.length >= 7 ? 0.5 : 0.8)) continue;
-        const total = ns * 2;
-        if (!best || total > best.total) best = { p, c: mkCand(p.doc, p.dv, c.score, c.ctx), ns, total, kind:"exact", parcial: c };
-      }
-    }
-  }
-  if (!best){
-    let bn = null;
-    for (const p of people){
-      if (!p.tokens.length) continue;
-      const ns = nameScoreFor(s, p);
-      if (ns >= 0.8 && (!bn || ns > bn.ns)) bn = { p, ns };
-    }
-    if (bn){
-      let near = null;
-      for (const c of cands){
-        if (bn.p.key && Math.abs(c.key.length - bn.p.key.length) <= 1 && lev(c.key, bn.p.key) <= 1){ near = c; break; }
-      }
-      best = { p: bn.p, c: near || cands[0] || null, ns: bn.ns, kind: near ? "near" : "docdif" };
-    }
-  }
-
-  if (!best){
-    s.verdict = cands.length ? "huerfano" : "ilegible";
-    s.read = cands.length ? candDisp(cands[0], null) : "";
-    if (!cands.length) s.note = s.letters < 25
-      ? "La imagen casi no devolvió texto. Probá con un escaneo más nítido o reprocesá en modo intensivo."
-      : "Se leyó texto pero ningún número con forma de documento.";
-    else s.note = "El número leído no figura en la planilla.";
-    return;
-  }
-
-  s.personIdx = best.p.idx;
-  s.nameScore = best.ns;
-  s.read = best.c ? candDisp(best.c, best.p) : "";
-  s.readCtx = best.c ? best.c.ctx : "";
-
-  if (s.forceOk){ s.verdict = "manual"; s.note = "Aprobado a mano por quien revisa."; return; }
-
-  if (best.kind === "near"){
-    s.verdict = "cercano";
-    s.note = `Se leyó ${s.read} y en la planilla figura ${best.p.docDisp}: difieren en un dígito, probablemente sea un error de lectura.`;
-  } else if (best.kind === "docdif"){
-    s.verdict = "docdif";
-    s.note = s.read
-      ? `El nombre coincide con la planilla, pero el número leído (${s.read}) no es el de esa persona (${best.p.docDisp}).`
-      : `El nombre coincide con la planilla, pero no se pudo leer ningún número de documento.`;
-  } else if (best.ns >= 0.8){
-    if (best.c && best.c.dv && best.p.dv && best.c.dv !== best.p.dv){
-      const correcto = S.dvCheck ? dvCedulaUy(best.p.doc) : "";
-      s.verdict = "revisar";
-      s.note = `El número coincide, pero el dígito verificador de la imagen (${best.c.dv}) no es el de la planilla (${best.p.dv}).` +
-        (correcto ? ` Por el cálculo, el que corresponde es ${correcto}.` : "");
-    } else s.verdict = "ok";
-  } else if (best.ns >= 0.5){
-    s.verdict = "revisar";
-    s.note = `El documento coincide. Del nombre se reconoció ${Math.round(best.ns * 100)}%: revisalo contra la imagen.`;
-  } else if (!s.names.length || s.letters < 25){
-    s.verdict = "revisar";
-    s.note = "El documento coincide, pero el nombre no se pudo leer para confirmarlo.";
-  } else {
-    s.verdict = "nombre";
-    s.note = `El documento ${s.read} figura en la planilla a nombre de ${best.p.nombre}, y en la imagen se leyó “${(s.names[0] || "—")}”.`;
-  }
-  if (best.parcial){
-    const leido = best.parcial.dv ? fmtPair(best.parcial.base, best.parcial.dv) : best.parcial.base;
-    s.note = (s.note ? s.note + " " : "") + `En la imagen se leyó sólo una parte del número (${leido}), que coincide con el final de ${s.read}.`;
-  }
-  if (best.reparado){
-    const leido = best.reparado.dv ? fmtPair(best.reparado.base, best.reparado.dv) : candDisp(best.reparado, null);
-    s.note = (s.note ? s.note + " " : "") + `En la imagen se leyó ${leido}, que no cierra el dígito verificador; corregido a ${s.read}.`;
-  }
-}
-
-/* dígitos que el OCR confunde entre sí en estas cédulas */
-const CONFUSOS = { "0":"869", "1":"74", "2":"7", "3":"859", "4":"19", "5":"6839", "6":"508", "7":"12", "8":"35690", "9":"8340" };
-function reparaciones(c){
-  const full = c.dv ? c.base + c.dv : c.base;
-  if (full.length < 7 || full.length > 8 || /\D/.test(full)) return [];
-  const out = [];
-  for (let i = 0; i < full.length; i++){
-    for (const alt of (CONFUSOS[full[i]] || "")){
-      const v = full.slice(0, i) + alt + full.slice(i + 1);
-      const base = v.slice(0, -1), dv = v.slice(-1);
-      if (dvCedulaUy(base) === dv) out.push({ base, dv });
-    }
-  }
-  return out;
-}
-
-/* Las imágenes también dicen qué formato es, pero sólo se les hace caso con
-   evidencia: que la cédula con guion de un escaneo se corresponda con una
-   persona nada más que si el último dígito de la planilla es el verificador.
-   Así una planilla de documentos sin verificador nunca se reinterpreta sola. */
-function modoPorEscaneos(){
-  if (!S.people.length) return null;
-  const conGuion = S.scans.filter(x => x.status === "done" && x.docs.some(d => d.dv));
-  if (conGuion.length < 2) return null;
-  const tal = new Set(), sinUltimo = new Set();
-  S.people.forEach(p => {
-    if (!p.doc) return;
-    tal.add(stripZeros(p.doc));
-    if (p.doc.length >= 7 && !p.dv) sinUltimo.add(stripZeros(p.doc.slice(0, -1)));
-  });
-  let evidencia = 0;
-  for (const x of conGuion){
-    for (const d of x.docs){
-      if (!d.dv) continue;
-      const b = stripZeros(d.base);
-      if (!tal.has(b) && sinUltimo.has(b)){ evidencia++; break; }
-    }
-  }
-  return evidencia >= 2 ? "cedula" : null;
-}
-
-function reconcile(){
-  if (S.docMode === "auto"){
-    const m = modoPorEscaneos();
-    if (m && S.docModeEff !== m){
-      S.docMode = m;
-      const yaCorrio = S.ran;
-      applySheetMap();            /* recalcula las personas con el formato correcto */
-      if (!yaCorrio) reconcile();
-      return;
-    }
-  }
-  const people = S.people;
-  people.forEach(p => { p.scans = []; p.status = "falta"; p.nameScore = 0; });
-  const byKey = new Map();
-  people.forEach(p => p.keys.forEach(k => { if (!byKey.has(k)) byKey.set(k, []); byKey.get(k).push(p); }));
-
-  for (const s of S.scans){
-    if (s.status === "pending" || s.status === "ocr" || s.status === "split") continue;
-    evaluateScan(s, people, byKey);
-    if (s.personIdx >= 0) people[s.personIdx].scans.push(s.id);
-  }
-  const rank = { ok:0, manual:0, revisar:1, cercano:1, ilegible:1, nombre:2, docdif:2, error:2 };
-  people.forEach(p => {
-    if (!p.scans.length){ p.status = "falta"; return; }
-    if (p.scans.length > 1){ p.status = "dup"; p.nameScore = Math.max(...p.scans.map(id => scanById(id).nameScore || 0)); return; }
-    const s = scanById(p.scans[0]);
-    p.nameScore = s.nameScore || 0;
-    p.status = s.verdict === "ilegible" ? "revisar" : s.verdict;
-    if (rank[p.status] == null) p.status = "revisar";
-  });
-  S.ran = true;
   render();
-}
+};
 
-/* ============================================================
-   9. Tablero y tablas
-   ============================================================ */
-const TILES = [
-  { k:"ok",     label:"Verificados",     tone:"ok",   view:"persons", keys:["ok","manual"] },
-  { k:"dup",    label:"Duplicados",      tone:"warn", view:"persons", keys:["dup"] },
-  { k:"rev",    label:"Para revisar",    tone:"warn", view:"persons", keys:["revisar","cercano"] },
-  { k:"inc",    label:"Incoherencias",   tone:"bad",  view:"persons", keys:["nombre","docdif"] },
-  { k:"falta",  label:"Sin escaneo",     tone:"bad",  view:"persons", keys:["falta"] },
-  { k:"huerf",  label:"Escaneos sin dueño", tone:"warn", view:"scans", keys:["huerfano"] },
-  { k:"ileg",   label:"Ilegibles",       tone:"warn", view:"scans", keys:["ilegible","error"] }
-];
-function tileCount(t){
-  return t.view === "persons"
-    ? S.people.filter(p => t.keys.includes(p.status)).length
-    : S.scans.filter(s => t.keys.includes(s.verdict)).length;
-}
+// ───── COMPRESION DE IMAGEN ─────
+function leerB64(file){ return new Promise(function(res,rej){ var fr=new FileReader(); fr.onload=function(e){res(e.target.result);}; fr.onerror=rej; fr.readAsDataURL(file); }); }
 
-function render(){
-  $("#results").hidden = !S.ran;
-  $("#btn-export").disabled = !S.ran;
-  $("#btn-print").disabled = !S.ran;
-  if (!S.ran) return;
-  $("#tiles").innerHTML = TILES.map(t => {
-    const n = tileCount(t);
-    const on = S.filter && S.filter.k === t.k;
-    return `<button class="tile t-${t.tone}" data-tile="${t.k}" aria-pressed="${on}">
-      <span class="n tnum">${n}</span><span class="k">${esc(t.label)}</span></button>`;
-  }).join("");
-  $$("#tiles .tile").forEach(b => b.addEventListener("click", () => {
-    const t = TILES.find(x => x.k === b.dataset.tile);
-    if (S.filter && S.filter.k === t.k) S.filter = null;
-    else { S.filter = t; S.view = t.view; }
-    syncTabs(); render();
-  }));
-  $("#active-filter").innerHTML = S.filter
-    ? `<button class="btn btn-sm" id="clearf">Filtro: ${esc(S.filter.label)} ✕</button>` : "";
-  const cf = $("#clearf"); if (cf) cf.addEventListener("click", () => { S.filter = null; render(); });
-  S.view === "persons" ? renderPersons() : renderScans();
-  const okN = tileCount(TILES[0]), tot = S.people.length;
-  $("#brandsub").textContent = `${okN} de ${tot} verificados`;
-}
-function syncTabs(){
-  $("#tab-p").setAttribute("aria-selected", String(S.view === "persons"));
-  $("#tab-s").setAttribute("aria-selected", String(S.view === "scans"));
-}
-function matchQuery(hay){
-  const q = S.query.trim().toLowerCase();
-  if (!q) return true;
-  return hay.toLowerCase().includes(q) || onlyDigits(hay).includes(onlyDigits(q) || "\u0000");
-}
-
-function renderPersons(){
-  let rows = S.people.slice();
-  if (S.filter && S.filter.view === "persons") rows = rows.filter(p => S.filter.keys.includes(p.status));
-  else if (S.filter) rows = rows.filter(p => p.scans.some(id => S.filter.keys.includes(scanById(id).verdict)));
-  rows = rows.filter(p => matchQuery(`${p.nombre} ${p.docDisp} ${p.scans.map(id => scanById(id).label).join(" ")}`));
-  const order = { docdif:0, nombre:1, falta:2, dup:3, cercano:4, revisar:5, manual:6, ok:7 };
-  rows.sort((a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9) || a.nombre.localeCompare(b.nombre, "es"));
-
-  $("#tbl").innerHTML = rows.length ? `
-    <thead><tr><th style="width:1%">Estado</th><th>Nombre en la planilla</th><th>Documento</th><th>Escaneo</th><th>Observación</th></tr></thead>
-    <tbody>${rows.map(p => {
-      const items = p.scans.map(id => scanById(id));
-      const obs = p.status === "falta" ? "No llegó ningún escaneo de esta persona."
-        : p.status === "dup" ? `${items.length} escaneos distintos apuntan a esta persona.`
-        : (items[0] && items[0].note) || (ST[p.status] ? ST[p.status].desc : "");
-      return `<tr data-person="${p.idx}" style="cursor:pointer">
-        <td>${pill(p.status)}</td>
-        <td><b>${esc(p.nombre) || "(sin nombre)"}</b>${p.flags.length ? `<br><small style="color:var(--warn)">${esc(p.flags[0])}</small>` : ""}</td>
-        <td class="mono">${esc(p.docDisp)}</td>
-        <td style="max-width:230px"><span style="display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom">${items.length ? esc(items.map(i => i.label).join(" · ")) : "—"}</span></td>
-        <td style="color:var(--fg-dim);max-width:320px">${esc(obs)}</td>
-      </tr>`;
-    }).join("")}</tbody>` : `<tbody><tr><td><div class="empty">Ninguna fila coincide con el filtro.</div></td></tr></tbody>`;
-  $$("#tbl tr[data-person]").forEach(tr => tr.addEventListener("click", () => openPerson(+tr.dataset.person)));
-}
-
-function renderScans(){
-  let rows = S.scans.filter(s => s.status !== "split");
-  if (S.filter && S.filter.view === "scans") rows = rows.filter(s => S.filter.keys.includes(s.verdict));
-  else if (S.filter) rows = rows.filter(s => s.personIdx >= 0 && S.filter.keys.includes(S.people[s.personIdx].status));
-  rows = rows.filter(s => matchQuery(`${s.label} ${s.read} ${(s.names[0] || "")} ${s.personIdx >= 0 ? S.people[s.personIdx].nombre : ""}`));
-  const order = { docdif:0, nombre:1, huerfano:2, error:3, ilegible:4, cercano:5, revisar:6, manual:7, ok:8 };
-  rows.sort((a, b) => (order[a.verdict] ?? 9) - (order[b.verdict] ?? 9) || a.label.localeCompare(b.label, "es"));
-
-  $("#tbl").innerHTML = rows.length ? `
-    <thead><tr><th style="width:1%">Estado</th><th>Archivo</th><th>Documento leído</th><th>Nombre leído</th><th>Corresponde a</th></tr></thead>
-    <tbody>${rows.map(s => {
-      const p = s.personIdx >= 0 ? S.people[s.personIdx] : null;
-      return `<tr data-scan="${s.id}" style="cursor:pointer">
-        <td>${pill(s.verdict || "ilegible")}</td>
-        <td style="max-width:220px"><span style="display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom">${esc(s.label)}</span></td>
-        <td class="mono">${s.read ? esc(s.read) : "—"}</td>
-        <td>${esc((s.names[0] || "").slice(0, 42)) || "—"}</td>
-        <td>${p ? esc(p.nombre) : "—"}</td>
-      </tr>`;
-    }).join("")}</tbody>` : `<tbody><tr><td><div class="empty">Ningún escaneo coincide con el filtro.</div></td></tr></tbody>`;
-  $$("#tbl tr[data-scan]").forEach(tr => tr.addEventListener("click", () => openScan(tr.dataset.scan)));
-}
-
-/* ============================================================
-   10. Panel de evidencia
-   ============================================================ */
-function highlight(text, needles){
-  let html = esc(text);
-  const uniq = Array.from(new Set(needles.filter(n => n && String(n).length >= 3)));
-  uniq.sort((a, b) => String(b).length - String(a).length);
-  for (const n of uniq){
-    const safe = esc(String(n)).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    try { html = html.replace(new RegExp(safe, "gi"), m => `\u0001${m}\u0002`); } catch(e){}
-  }
-  return html.replace(/\u0001/g, "<mark>").replace(/\u0002/g, "</mark>");
-}
-function closePanel(){ $("#panel-root").innerHTML = ""; document.removeEventListener("keydown", escClose); }
-function escClose(e){ if (e.key === "Escape") closePanel(); }
-function openPanel(title, sub, bodyHTML){
-  $("#panel-root").innerHTML = `
-    <div class="scrim" id="scrim"></div>
-    <aside class="panel" role="dialog" aria-modal="true" aria-label="${esc(title)}">
-      <div class="panel-h">
-        <div style="min-width:0;flex:1"><h3>${title}</h3><div style="color:var(--fg-dim);font-size:13px;margin-top:3px">${sub}</div></div>
-        <button class="btn btn-sm" id="panel-close" aria-label="Cerrar">✕</button>
-      </div>
-      <div class="panel-b">${bodyHTML}</div>
-    </aside>`;
-  $("#scrim").addEventListener("click", closePanel);
-  $("#panel-close").addEventListener("click", closePanel);
-  document.addEventListener("keydown", escClose);
-  $("#panel-close").focus();
-}
-
-function scanBlock(s){
-  const p = s.personIdx >= 0 ? S.people[s.personIdx] : null;
-  const needles = [];
-  if (p){ needles.push(...p.tokens); if (p.doc){ needles.push(p.doc, p.docDisp, fmtPair(p.doc, "")); } }
-  if (s.read) needles.push(s.read, onlyDigits(s.read));
-  const peopleOpts = S.people.map(x => `<option value="${x.idx}"${p && p.idx === x.idx ? " selected" : ""}>${esc(x.nombre)} — ${esc(x.docDisp)}</option>`).join("");
-  return `
-  <div class="panel-sec" data-sb="${s.id}" style="border-top:1px solid var(--line-soft);padding-top:14px">
-    <h4>${esc(s.label)}</h4>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
-      ${pill(s.verdict || "ilegible")}
-      <span class="pill p-mute">OCR ${s.conf || 0}%</span>
-      ${s.hard ? `<span class="pill p-info">Modo intensivo</span>` : ""}
-    </div>
-    ${s.note ? `<div class="banner warn" style="margin-bottom:12px"><svg viewBox="0 0 24 24"><path d="M12 9v4m0 3h.01M10.3 3.9 2.6 17a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg><div class="bx">${esc(s.note)}</div></div>` : ""}
-    ${s.error ? `<div class="banner warn" style="margin-bottom:12px"><svg viewBox="0 0 24 24"><path d="M12 9v4m0 3h.01"/><circle cx="12" cy="12" r="9"/></svg><div class="bx">${esc(s.error)}</div></div>` : ""}
-    ${s.thumb ? `<img class="shot" src="${s.thumb}" alt="Escaneo ${esc(s.label)}" style="margin-bottom:12px">` : ""}
-    <dl class="kv" style="margin-bottom:12px">
-      <dt>Documento leído</dt><dd class="mono">${s.read ? esc(s.read) : "no se leyó"}</dd>
-      <dt>Nombre leído</dt><dd>${esc(s.names.slice(0, 2).join(" / ")) || "no se leyó"}</dd>
-      ${s.mrz && s.mrz.doc ? `<dt>MRZ</dt><dd class="mono">${esc(s.mrz.doc)}${s.mrz.name ? " · " + esc(s.mrz.name) : ""}</dd>` : ""}
-      ${s.docs.length ? `<dt>Otros números</dt><dd class="mono">${esc(s.docs.slice(1, 5).map(d => fmtPair(d.base, d.dv)).join(", ")) || "—"}</dd>` : ""}
-      <dt>Coincidencia de nombre</dt><dd class="tnum">${Math.round((s.nameScore || 0) * 100)}%</dd>
-    </dl>
-    <h4>Texto reconocido</h4>
-    <div class="ocr">${s.text ? highlight(s.text.trim(), needles) : "(sin texto)"}</div>
-    <h4 style="margin-top:14px">Corregir</h4>
-    <div class="fixrow">
-      <div class="field"><label for="fd-${s.id}">Número de documento</label>
-        <input id="fd-${s.id}" class="mono" placeholder="${esc(s.read || (S.docModeEff === "cedula" ? "ej. 1.222.333-0" : "ej. 30.123.456"))}" value="${esc(s.manualDoc || "")}"></div>
-      <button class="btn btn-sm" data-act="setdoc" data-id="${s.id}">Aplicar</button>
-    </div>
-    <div class="fixrow" style="margin-top:10px">
-      <div class="field"><label for="fp-${s.id}">Corresponde a</label>
-        <select id="fp-${s.id}">${peopleOpts}</select></div>
-      <button class="btn btn-sm" data-act="assign" data-id="${s.id}">Vincular</button>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-      <button class="btn btn-sm" data-act="ok" data-id="${s.id}">Aprobar a mano</button>
-      <button class="btn btn-sm" data-act="hard" data-id="${s.id}"${s.file ? "" : " disabled"}>Reprocesar intensivo</button>
-      <button class="btn btn-sm" data-act="clear" data-id="${s.id}">Quitar correcciones</button>
-    </div>
-  </div>`;
-}
-
-function wirePanelActions(reopen){
-  $$("#panel-root [data-act]").forEach(b => b.addEventListener("click", async () => {
-    const id = b.dataset.id, s = scanById(id);
-    if (!s) return;
-    if (b.dataset.act === "setdoc"){
-      const v = $("#fd-" + id).value;
-      s.manualDoc = String(v || "").trim(); s.forcePerson = null; s.forceOk = false;
-    } else if (b.dataset.act === "assign"){
-      s.forcePerson = +$("#fp-" + id).value; s.forceOk = false;
-    } else if (b.dataset.act === "ok"){
-      s.forceOk = true;
-    } else if (b.dataset.act === "clear"){
-      s.manualDoc = ""; s.forcePerson = null; s.forceOk = false;
-    } else if (b.dataset.act === "hard"){
-      b.disabled = true; b.textContent = "Procesando…";
-      try { await TESS.init(S.lang); s.status = "pending"; await ocrOne(s, true); }
-      catch(err){ s.status = "error"; s.error = (err && err.message) || String(err); }
-    }
-    reconcile();
-    if (reopen) reopen();
-  }));
-}
-
-function openScan(id){
-  const s = scanById(id);
-  if (!s) return;
-  const p = s.personIdx >= 0 ? S.people[s.personIdx] : null;
-  openPanel(esc(s.label), p ? `Corresponde a <b>${esc(p.nombre)}</b> · ${esc(p.docDisp)}` : "Sin persona asignada",
-    (p ? `<div class="panel-sec"><h4>Fila de la planilla</h4><dl class="kv">
-      <dt>Nombre</dt><dd><b>${esc(p.nombre)}</b></dd>
-      <dt>Documento</dt><dd class="mono">${esc(p.docDisp)}</dd>
-      <dt>Fila</dt><dd class="mono">${p.fila}</dd></dl></div>` : "")
-    + scanBlock(s));
-  wirePanelActions(() => openScan(id));
-}
-
-function openPerson(idx){
-  const p = S.people[idx];
-  if (!p) return;
-  const items = p.scans.map(i => scanById(i));
-  const unlinked = S.scans.filter(s => s.personIdx < 0 && s.status !== "split");
-  openPanel(esc(p.nombre) || "(sin nombre)",
-    `${esc(p.docDisp)} · fila ${p.fila} de la planilla`,
-    `<div class="panel-sec">
-      <h4>Resultado</h4>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${pill(p.status)}
-        <span style="color:var(--fg-dim);font-size:13.5px">${esc(ST[p.status] ? ST[p.status].desc : "")}</span></div>
-      ${p.flags.length ? `<ul style="margin:10px 0 0;padding-left:18px;color:var(--warn);font-size:13px">${p.flags.map(f => `<li>${esc(f)}</li>`).join("")}</ul>` : ""}
-    </div>
-    ${items.length ? items.map(scanBlock).join("") : `<div class="panel-sec" style="border-top:1px solid var(--line-soft);padding-top:14px">
-      <h4>Sin escaneo</h4>
-      <p style="color:var(--fg-dim);font-size:13.5px;margin:0 0 10px">No hay ningún documento escaneado vinculado a esta persona.</p>
-      ${unlinked.length ? `<div class="fixrow"><div class="field"><label for="link-${idx}">Vincular un escaneo sin dueño</label>
-        <select id="link-${idx}">${unlinked.map(s => `<option value="${s.id}">${esc(s.label)}${s.read ? " — " + esc(s.read) : ""}</option>`).join("")}</select></div>
-        <button class="btn btn-sm" id="dolink-${idx}">Vincular</button></div>` : `<p style="color:var(--fg-dim);font-size:13px;margin:0">No quedan escaneos sin asignar.</p>`}
-    </div>`}`);
-  wirePanelActions(() => openPerson(idx));
-  const lk = $("#dolink-" + idx);
-  if (lk) lk.addEventListener("click", () => {
-    const s = scanById($("#link-" + idx).value);
-    if (s){ s.forcePerson = idx; s.forceOk = false; reconcile(); openPerson(idx); }
+function comprimir(file, maxDim, calidad){
+  maxDim = maxDim||1600; calidad = calidad||0.82;
+  return new Promise(function(resolve){
+    var img = new Image(), url = URL.createObjectURL(file);
+    var fallback = function(){ URL.revokeObjectURL(url); leerB64(file).then(resolve); };
+    var t = setTimeout(fallback, 9000);
+    img.onload = function(){
+      clearTimeout(t); URL.revokeObjectURL(url);
+      var w=img.width, h=img.height;
+      if(!w||!h){ fallback(); return; }
+      if(w>maxDim||h>maxDim){ if(w>=h){ h=Math.round(h*maxDim/w); w=maxDim; } else { w=Math.round(w*maxDim/h); h=maxDim; } }
+      var c=document.createElement("canvas"); c.width=w; c.height=h;
+      var x=c.getContext("2d"); x.fillStyle="#fff"; x.fillRect(0,0,w,h); x.drawImage(img,0,0,w,h);
+      resolve(c.toDataURL("image/jpeg", calidad));
+    };
+    img.onerror = function(){ clearTimeout(t); fallback(); };
+    img.src = url;
   });
 }
 
-/* ============================================================
-   11. Corrida
-   ============================================================ */
-function refreshRunbar(){
-  const np = S.people.length, ns = S.scans.filter(s => !s.isCard).length;
-  const ready = np > 0 && ns > 0 && !S.running && !S.demo && ENV.workers !== false;
-  $("#btn-run").disabled = !ready;
-  $("#run-sum").innerHTML = ENV.workers === false ? "No se puede leer documentos en esta vista: descargá el archivo y abrilo en tu navegador."
-    : S.demo ? "Estás viendo el ejemplo. Cargá tu planilla y tus escaneos para hacer una verificación real."
-    : !np && !ns ? "Cargá una planilla y al menos un escaneo para empezar."
-    : !np ? "Falta la planilla de personas."
-    : !ns ? `Planilla lista con <b>${np}</b> personas. Ahora sumá los escaneos.`
-    : `Se van a leer <b>${ns}</b> archivo${ns === 1 ? "" : "s"} y cruzar contra <b>${np}</b> persona${np === 1 ? "" : "s"}.`;
-  $("#scan-count").textContent = ns ? `${ns} archivo${ns === 1 ? "" : "s"}` : "";
+// ───── MODAL COTEJO ─────
+function abrirCotejo(){
+  ses = { paso:1, docUrls:[], planUrls:[], resultados:[], err:"", cargando:0 };
+  document.getElementById("cotejoOv").classList.add("show");
+  renderCotejo();
 }
+function cerrarCotejo(){ document.getElementById("cotejoOv").classList.remove("show"); }
+document.getElementById("cotejoOv").addEventListener("click", function(e){ if(e.target.id==="cotejoOv") cerrarCotejo(); });
 
-function paintProgress(total, done, phase){
-  $("#progress-card").hidden = false;
-  $("#prog-title").textContent = phase || "Leyendo documentos…";
-  $("#prog-bar").style.width = total ? `${Math.round(done / total * 100)}%` : "0%";
-  $("#prog-meta").textContent = total ? `${done} de ${total}` : "";
-  const shown = S.scans.filter(s => s.status !== "pending").slice(-40).reverse();
-  const nota = s => s.status === "split" ? `${s.splitInto} cédulas` : null;
-  $("#prog-list").innerHTML = shown.map(s => {
-    const mark = s.status === "ocr" ? `<span class="spin"></span>`
-      : s.status === "error" ? `<span style="color:var(--bad)">✕</span>`
-      : `<span style="color:var(--ok)">✓</span>`;
-    const info = nota(s) || (s.status === "done" ? (s.read || (s.docs[0] ? fmtPair(s.docs[0].base, s.docs[0].dv) : "sin número")) : s.status === "error" ? "error" : "leyendo");
-    return `<div class="qitem">${mark}<span class="nm">${esc(s.label)}</span><span class="mono" style="color:var(--fg-dim)">${esc(info)}</span></div>`;
+function renderCotejo(){
+  var labels = ["Fotos de documentos","Foto de planilla","Revision y cotejo"];
+  document.getElementById("steps").innerHTML = labels.map(function(l,i){
+    var n=i+1, done = (ses.paso==="proc" ? n<3 : ses.paso>n), act = (ses.paso===n);
+    return '<div class="stp '+(done?"done":act?"active":"")+'"><div class="stp-n">'+(done?"✓":n)+'</div><span class="stp-l">'+l+'</span>'+(n<3?'<div class="stp-line"></div>':"")+'</div>';
   }).join("");
+
+  var body=document.getElementById("cotejoBody"), foot=document.getElementById("cotejoFoot");
+
+  if(ses.paso===1){
+    body.innerHTML =
+      '<div style="font-size:.78rem;color:var(--txtD);margin-bottom:1rem;line-height:1.6">Carga las <strong style="color:var(--txtB)">cedulas</strong> como fotos o como PDF escaneado. Cada pagina puede tener varios documentos.</div>'+
+      '<input type="file" accept="image/*,application/pdf,.pdf" multiple id="docInput">'+
+      '<div class="drop" id="docDrop"><div style="font-size:2rem">🗂️</div><div class="drop-t">Cedulas / documentos — imagen o PDF</div><div class="drop-s">Fotos o PDF escaneado — detecta todos los documentos de cada pagina</div><div class="drop-tag">JPG · PNG · PDF · varios archivos</div></div>'+
+      '<div class="prev" id="docPrev"></div>';
+    document.getElementById("docInput").addEventListener("change", function(e){ addImgs(e.target.files,"doc"); e.target.value=""; });
+    document.getElementById("docDrop").addEventListener("click", function(){ document.getElementById("docInput").click(); });
+    setupDrop("docDrop","doc"); renderPrev("doc");
+    foot.innerHTML = '<div style="font-size:.68rem;color:var(--txtD)">'+ses.docUrls.length+' pagina(s)'+(ses.cargando?' · procesando '+ses.cargando+'...':'')+'</div><div style="display:flex;gap:.55rem"><button class="btn-c" onclick="cerrarCotejo()">Cancelar</button><button class="btn-p" onclick="irPaso(2)">Siguiente — Planilla →</button></div>';
+  }
+  else if(ses.paso===2){
+    body.innerHTML =
+      '<div style="font-size:.78rem;color:var(--txtD);margin-bottom:1rem;line-height:1.6">Ahora la <strong style="color:var(--txtB)">planilla</strong>, como foto o PDF. Si el PDF tiene varias hojas se procesan todas.</div>'+
+      '<input type="file" accept="image/*,application/pdf,.pdf" multiple id="planInput">'+
+      '<div class="drop" id="planDrop"><div style="font-size:2rem">📄</div><div class="drop-t">Planilla — imagen o PDF</div><div class="drop-s">Foto o PDF — lee toda la tabla de cada pagina</div><div class="drop-tag">JPG · PNG · PDF · varias paginas</div></div>'+
+      '<div class="prev" id="planPrev"></div>';
+    document.getElementById("planInput").addEventListener("change", function(e){ addImgs(e.target.files,"plan"); e.target.value=""; });
+    document.getElementById("planDrop").addEventListener("click", function(){ document.getElementById("planInput").click(); });
+    setupDrop("planDrop","plan"); renderPrev("plan");
+    foot.innerHTML = '<div style="font-size:.68rem;color:var(--txtD)">'+ses.planUrls.length+' pagina(s)'+(ses.cargando?' · procesando '+ses.cargando+'...':'')+'</div><div style="display:flex;gap:.55rem"><button class="btn-c" onclick="irPaso(1)">← Anterior</button><button class="btn-p" onclick="analizar()">🔍 Analizar</button></div>';
+  }
+  else if(ses.paso==="proc"){
+    body.innerHTML = '<div class="proc"><div class="spin"></div><div class="proc-t" id="procMsg">Analizando...</div><div class="bar"><div class="bar-f" id="barF" style="width:0%"></div></div><div class="proc-s">Cada imagen se procesa por separado. Puede tardar un minuto.</div></div>';
+    foot.innerHTML = "";
+  }
+  else if(ses.paso===3){ renderResultados(); }
 }
 
-async function runVerification(){
-  if (S.running) return;
-  S.running = true; S.cancel = false;
-  $("#btn-cancel").hidden = false;
-  refreshRunbar();
-  try {
-    paintProgress(0, 0, "Preparando archivos…");
-    await expandPdfPages();
-    paintProgress(0, 0, "Cargando el motor de OCR…");
-    $("#prog-list").innerHTML = `<div class="qitem"><span class="spin"></span><span class="nm">La primera vez se descargan unos 11 MB (motor + idioma). Después queda en caché del navegador.</span></div>`;
-    await TESS.ready(S.lang, msg => {
-      const paso = ENGINE_STEPS[msg.status] || msg.status;
-      const pct = typeof msg.progress === "number" ? Math.round(msg.progress * 100) : null;
-      paintProgress(0, 0, "Cargando el motor de OCR…");
-      $("#prog-meta").textContent = pct != null ? `${pct}%` : "";
-      $("#prog-bar").style.width = pct != null ? pct + "%" : "0%";
-      $("#prog-list").innerHTML = `<div class="qitem"><span class="spin"></span><span class="nm">${esc(paso)}${pct != null ? " — " + pct + "%" : ""}</span></div>`;
+function irPaso(n){
+  if(ses.cargando>0){ toast("Esperá a que terminen de cargarse los archivos","error"); return; }
+  if(n===2 && !ses.docUrls.length && !ses.planUrls.length){ toast("Carga al menos un archivo","error"); return; }
+  ses.paso=n; renderCotejo();
+}
+
+function esPDF(f){ return f.type==="application/pdf" || /\.pdf$/i.test(f.name||""); }
+function esImagen(f){ return f.type.indexOf("image/")===0 || /\.(jpe?g|png|heic|heif|webp)$/i.test(f.name||""); }
+
+// Renderiza cada pagina de un PDF a una imagen JPEG
+function pdfAImagenes(file, maxDim){
+  maxDim = maxDim || 2000;
+  if(!window.pdfjsLib) return Promise.reject(new Error("No se pudo cargar el lector de PDF"));
+  return file.arrayBuffer().then(function(buf){
+    return pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+  }).then(function(pdf){
+    var paginas = [], cadena = Promise.resolve();
+    for(var n=1; n<=pdf.numPages; n++){
+      (function(num){
+        cadena = cadena.then(function(){
+          return pdf.getPage(num).then(function(page){
+            var base = page.getViewport({ scale: 1 });
+            var escala = maxDim / Math.max(base.width, base.height);
+            if(!isFinite(escala) || escala <= 0) escala = 2;
+            escala = Math.min(Math.max(escala, 1), 4);
+            var vp = page.getViewport({ scale: escala });
+            var c = document.createElement("canvas");
+            c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+            var ctx = c.getContext("2d");
+            ctx.fillStyle = "#fff"; ctx.fillRect(0,0,c.width,c.height);
+            return page.render({ canvasContext: ctx, viewport: vp }).promise.then(function(){
+              paginas.push(c.toDataURL("image/jpeg", 0.85));
+            });
+          });
+        });
+      })(n);
+    }
+    return cadena.then(function(){ return paginas; });
+  });
+}
+
+function addImgs(files, kind){
+  var arr = Array.prototype.slice.call(files).filter(function(f){ return esImagen(f) || esPDF(f); });
+  if(!arr.length){ toast("Solo se admiten imagenes o PDF","error"); return; }
+  var destino = function(){ return kind==="doc" ? ses.docUrls : ses.planUrls; };
+
+  arr.forEach(function(f){
+    if(esPDF(f)){
+      ses.cargando++; renderCotejo();
+      pdfAImagenes(f).then(function(pags){
+        if(!pags.length) toast("El PDF no tiene paginas legibles","error");
+        pags.forEach(function(u){ destino().push(u); });
+        ses.cargando--; renderPrev(kind); renderCotejo();
+        if(pags.length) toast("PDF cargado — "+pags.length+" pagina(s)","ok");
+      }).catch(function(e){
+        ses.cargando--; renderCotejo();
+        toast("No se pudo leer el PDF: "+(e.message||e),"error");
+      });
+    } else {
+      ses.cargando++; renderCotejo();
+      comprimir(f).then(function(u){
+        destino().push(u); ses.cargando--; renderPrev(kind); renderCotejo();
+      });
+    }
+  });
+}
+function renderPrev(kind){
+  var urls = kind==="doc"?ses.docUrls:ses.planUrls;
+  var el = document.getElementById(kind==="doc"?"docPrev":"planPrev");
+  if(!el) return;
+  el.innerHTML = urls.map(function(u,i){ return '<div class="prev-i"><img src="'+u+'"><button class="prev-rm" onclick="rmImg(\''+kind+'\','+i+');event.stopPropagation()">✕</button></div>'; }).join("");
+}
+function rmImg(kind,i){
+  if(kind==="doc"){ ses.docUrls.splice(i,1); } else { ses.planUrls.splice(i,1); }
+  renderCotejo();
+}
+function setupDrop(id,kind){
+  var d=document.getElementById(id); if(!d) return;
+  d.ondragover=function(e){ e.preventDefault(); d.classList.add("over"); };
+  d.ondragleave=function(){ d.classList.remove("over"); };
+  d.ondrop=function(e){ e.preventDefault(); d.classList.remove("over"); addImgs(e.dataTransfer.files,kind); };
+}
+
+// ───── LLAMADA A LA NETLIFY FUNCTION ─────
+function analizarImagen(dataUrl, tipo){
+  var b64 = dataUrl.split(",")[1];
+  var mt = (dataUrl.split(";")[0]||"").split(":")[1] || "image/jpeg";
+  return fetch("/.netlify/functions/analizar", {
+    method:"POST", headers:{"content-type":"application/json"},
+    body: JSON.stringify({ image:b64, mediaType:mt, tipo:tipo })
+  }).then(function(r){
+    if(r.status===502 || r.status===504){
+      throw new Error("La pagina tardo demasiado y el servidor corto la conexion. Divida esa hoja en dos imagenes y vuelva a intentar.");
+    }
+    return r.json().then(function(d){
+      if(!r.ok) throw new Error(d.error || ("HTTP "+r.status));
+      return d.registros || [];
+    }, function(){
+      throw new Error("Respuesta no valida del servidor (posible timeout). Divida esa hoja en dos imagenes.");
     });
-    S.keyIndex = new Map();
-    S.people.forEach(p => p.keys.forEach(k => { if (!S.keyIndex.has(k)) S.keyIndex.set(k, p); }));
-    S.rotPref = {};
-    const queue = S.scans.filter(s => s.status === "pending");
-    let total = queue.length;
-    let done = 0;
-    paintProgress(total, 0);
-    /* una hoja con varias cédulas agrega trabajo a la cola mientras se lee */
-    const enqueue = hijos => { queue.push(...hijos); total += hijos.length; paintProgress(total, done); };
-    TESS.grow(S.lang, maxWorkers());
-    let activos = 0;
-    const workers = Array.from({ length: maxWorkers() }, () => (async () => {
-      while (!S.cancel){
-        if (!queue.length){
-          if (!activos) break;              /* nadie más puede agregar trabajo */
-          await new Promise(r => setTimeout(r, 60));
-          continue;
-        }
-        const it = queue.shift();
-        activos++;
-        it.status = "ocr"; paintProgress(total, done);
-        await ocrOne(it, false, enqueue);
-        activos--;
-        done++; paintProgress(total, done);
+  });
+}
+
+function analizar(){
+  if(ses.cargando>0){ toast("Esperá a que terminen de cargarse los archivos","error"); return; }
+  if(!ses.docUrls.length && !ses.planUrls.length){ toast("No hay paginas para analizar","error"); return; }
+  ses.paso="proc"; ses.err=""; renderCotejo();
+  var docs=[], plan=[], total=ses.docUrls.length+ses.planUrls.length, hechas=0;
+  var prog=function(){ hechas++; var b=document.getElementById("barF"); if(b) b.style.width=Math.round(hechas/Math.max(total,1)*100)+"%"; };
+  var msg=function(t){ var e=document.getElementById("procMsg"); if(e) e.textContent=t; };
+
+  var cadena = Promise.resolve();
+  ses.docUrls.forEach(function(u,i){
+    cadena = cadena.then(function(){
+      msg("Leyendo documentos — imagen "+(i+1)+"/"+ses.docUrls.length);
+      return analizarImagen(u,"documento").then(function(rs){ docs=docs.concat(rs); prog(); })
+        .catch(function(e){ ses.err=e.message; prog(); });
+    });
+  });
+  ses.planUrls.forEach(function(u,i){
+    cadena = cadena.then(function(){
+      msg("Leyendo planilla — pagina "+(i+1)+"/"+ses.planUrls.length);
+      return analizarImagen(u,"planilla").then(function(rs){ plan=plan.concat(rs); prog(); })
+        .catch(function(e){ ses.err=e.message; prog(); });
+    });
+  });
+  cadena.then(function(){
+    msg("Cotejando...");
+    ses.resultados = cotejar(docs, plan);
+    ses.paso=3; renderCotejo();
+  });
+}
+
+// ───── LOGICA DE COTEJO ─────
+function soloDig(s){ return (""+(s||"")).replace(/\D/g,""); }
+function capIrregular(s){ return /[a-z][A-Z]/.test(s) && /[A-Z]{2,}/.test(s); }
+function norm(s){ return (""+(s||"")).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z]/g,""); }
+
+// Fecha a YYYY-MM-DD, acepta YYYY-MM-DD o DD/MM/YYYY
+function normFecha(v){
+  v = (""+(v||"")).trim();
+  if(!v) return "";
+  if(/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+  var b = v.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if(b) return b[3]+"-"+("0"+b[2]).slice(-2)+"-"+("0"+b[1]).slice(-2);
+  return "";
+}
+
+// Distancia de edicion: separa un error de tipeo de un apellido realmente distinto
+function lev(a,b){
+  if(a===b) return 0;
+  var m=a.length, n=b.length;
+  if(!m) return n;
+  if(!n) return m;
+  var fila=[], i, j;
+  for(j=0;j<=n;j++) fila[j]=j;
+  for(i=1;i<=m;i++){
+    var prev=fila[0]; fila[0]=i;
+    for(j=1;j<=n;j++){
+      var tmp=fila[j];
+      fila[j]=Math.min(fila[j]+1, fila[j-1]+1, prev+(a.charAt(i-1)===b.charAt(j-1)?0:1));
+      prev=tmp;
+    }
+  }
+  return fila[n];
+}
+
+// La planilla trae un apellido y la cedula suele traer dos.
+// Devuelve "ok" | "tipeo" | "distinto"
+function compararApellido(apPlanilla, apDoc){
+  var P=norm(apPlanilla), D=norm(apDoc);
+  if(!P || !D) return "ok";
+  if(D.indexOf(P)===0 || P.indexOf(D)===0) return "ok";
+  var recorte = D.slice(0, P.length);
+  var umbral = P.length<=4 ? 1 : 2;
+  return lev(P, recorte) <= umbral ? "tipeo" : "distinto";
+}
+
+function cotejar(docs, plan){
+  var hoy = new Date().toISOString().slice(0,10);
+  var out = [];
+
+  plan.forEach(function(p){
+    var ci = soloDig(p.cedula);
+    var doc = null;
+    for(var i=0;i<docs.length;i++){ if(soloDig(docs[i].cedula)===ci && ci){ doc=docs[i]; break; } }
+    var estado="nd", obs="";
+
+    if(doc){
+      var sD=(doc.sexo||"").toUpperCase(), sP=(p.sexo||"").toUpperCase();
+      var nat=(doc.nacionalidad||"").toUpperCase();
+      var extranjero = nat && nat.indexOf("URUGUAY")!==0;
+      var venc = normFecha(doc.vencimiento);
+      var cmpAp = compararApellido(p.apellido, doc.apellido);
+      var apDoc = (doc.apellido||"").toUpperCase();
+
+      // Una fila puede tener mas de un problema: se juntan todos y manda el mas grave
+      var hallazgos = [];
+      if(venc && venc < hoy)
+        hallazgos.push(["error","CEDULA VENCIDA el "+venc+" — documento no vigente al ingreso"]);
+      if(sD && sP && sD!==sP)
+        hallazgos.push(["error","Sexo en planilla: "+sP+" — en documento: "+sD+". Corregir a "+sD]);
+      if(cmpAp==="distinto")
+        hallazgos.push(["error","APELLIDO INCORRECTO — la cedula dice "+apDoc]);
+      else if(cmpAp==="tipeo")
+        hallazgos.push(["warn","Apellido mal escrito — la cedula dice "+apDoc]);
+      if(extranjero)
+        hallazgos.push(["error","Doc. extranjero ("+doc.nacionalidad+") — completar Tipo doc y N doc"]);
+      if(capIrregular((p.nombre||"")+" "+(p.apellido||"")))
+        hallazgos.push(["warn","Capitalizacion irregular en el nombre"]);
+
+      if(!hallazgos.length){ estado="ok"; obs=""; }
+      else {
+        estado = hallazgos.some(function(h){ return h[0]==="error"; }) ? "error" : "warn";
+        obs = hallazgos.map(function(h){ return h[1]; }).join(" · ");
       }
-    })());
-    await Promise.all(workers);
-    paintProgress(total, done, S.cancel ? "Cancelado" : "Lectura terminada");
-    S.demo = false;
-    $("#demo-banner").hidden = true;
-    reconcile();
-    setTimeout(() => { if (!S.running) $("#progress-card").hidden = true; }, 1600);
-  } catch(err){
-    paintProgress(0, 0, "No se pudo completar la lectura");
-    $("#prog-list").innerHTML = `<div class="banner warn" style="margin-top:10px"><svg viewBox="0 0 24 24"><path d="M12 9v4m0 3h.01"/><circle cx="12" cy="12" r="9"/></svg><div class="bx">${esc((err && err.message) || String(err))}</div></div>`;
-  } finally {
-    S.running = false; S.cancel = false;
-    $("#btn-cancel").hidden = true;
-    refreshRunbar();
-  }
-}
-
-/* ============================================================
-   11b. Diagnóstico: qué parte del motor no está llegando
-   ============================================================ */
-async function probe(url, label){
-  const t0 = performance.now();
-  try {
-    const r = await fetch(url, { cache:"force-cache" });
-    if (!r.ok) throw new Error("HTTP " + r.status);
-    const reader = r.body && r.body.getReader ? r.body.getReader() : null;
-    if (reader){ await reader.read(); try { await reader.cancel(); } catch(e){} }
-    else await r.arrayBuffer();
-    return { ok:true, label, ms: Math.round(performance.now() - t0), url };
-  } catch(e){
-    return { ok:false, label, ms: Math.round(performance.now() - t0), url, err:(e && e.message) || String(e) };
-  }
-}
-async function runDiagnostics(){
-  const card = $("#progress-card");
-  card.hidden = false;
-  $("#prog-title").textContent = "Probando el motor…";
-  $("#prog-meta").textContent = "";
-  $("#prog-bar").style.width = "0%";
-  const lines = [];
-  const paint = () => {
-    $("#prog-list").innerHTML = lines.map(l => {
-      const mark = l.ok === true ? `<span style="color:var(--ok)">✓</span>`
-        : l.ok === false ? `<span style="color:var(--bad)">✕</span>` : `<span class="spin"></span>`;
-      return `<div class="qitem">${mark}<span class="nm">${esc(l.t)}</span><span class="mono" style="color:var(--fg-dim)">${esc(l.n || "")}</span></div>`;
-    }).join("") + `<div style="padding:10px 2px"><button class="btn btn-sm" id="diag-copy">Copiar el resultado</button></div>`;
-    const cp = $("#diag-copy");
-    if (cp) cp.addEventListener("click", () => {
-      const txt = lines.map(l => `${l.ok === true ? "OK " : l.ok === false ? "FALLA " : "… "}${l.t} ${l.n || ""}`).join("\n");
-      try { navigator.clipboard.writeText(txt).catch(() => {}); } catch(e){}
-      cp.textContent = "Copiado";
-    });
-  };
-  const add = (t, n, ok) => { lines.push({ t, n, ok }); paint(); return lines[lines.length - 1]; };
-  const fin = (l, ok, n) => { l.ok = ok; if (n) l.n = n; paint(); };
-
-  add(`Página abierta como ${location.protocol === "file:" ? "archivo local" : location.protocol}`, "", true);
-  add(`Navegador: ${(navigator.userAgent.match(/(Chrome|Firefox|Safari|Edg)\/[\d.]+/g) || ["desconocido"]).join(" ")} · ${navigator.hardwareConcurrency || "?"} núcleos`, "", true);
-  const lw = add("Crear un Web Worker (donde corre el OCR)", "probando…", null);
-  const okw = ENV.workers === null ? await checkWorkers() : ENV.workers;
-  fin(lw, okw, okw ? "permitido" : "bloqueado — " + (ENV.motivo || "") + ". Abrí el archivo directamente en el navegador.");
-  add("Lector de Excel (xlsx)", "", !!window.XLSX);
-  add("Lector de PDF (pdf.js)", "", !!window.pdfjsLib);
-  add("Script de OCR (tesseract.js)", "", !!window.Tesseract);
-
-  const lang1 = S.lang.split("+")[0];
-  const recursos = CDN_BASES.map(b => {
-    const o = tessOptions(b, lang1);
-    return {
-      "Worker de OCR": o.workerPath,
-      "Motor wasm": o.corePath + "/tesseract-core-simd-lstm.wasm.js",
-      "Datos de idioma": o.langs.map(lp => lp + "/" + lang1 + ".traineddata.gz")
-    };
-  });
-  for (const t of ["Worker de OCR", "Motor wasm", "Datos de idioma"]){
-    const urls = [];
-    recursos.forEach(r => { const v = r[t]; Array.isArray(v) ? urls.push(...v) : urls.push(v); });
-    const unicas = Array.from(new Set(urls));
-    const l = add(t, "probando…", null);
-    let hecho = false;
-    const errs = [];
-    for (const u of unicas){
-      const r = await probe(u, t);
-      if (r.ok){ fin(l, true, `${hostOf(u)} · ${r.ms} ms`); hecho = true; break; }
-      errs.push(`${hostOf(u)}: ${r.err}`);
+    } else {
+      estado="nd"; obs="Documento no escaneado / no presentado";
     }
-    if (!hecho) fin(l, false, errs.join(" · "));
+
+    out.push({ id:uid(), _on:true, fecha:p.fecha||"", hora:p.hora||"", cedula:ci,
+      nombre:p.nombre||"", apellido:p.apellido||"", sexo:(p.sexo||"").toUpperCase(),
+      fnac:p.fnac||"", estado:estado, obs:obs });
+  });
+
+  docs.forEach(function(d){
+    var ci = soloDig(d.cedula); if(!ci) return;
+    var esta=false;
+    for(var i=0;i<plan.length;i++){ if(soloDig(plan[i].cedula)===ci){ esta=true; break; } }
+    if(!esta){
+      var nat=(d.nacionalidad||"").toUpperCase();
+      var ex = nat && nat.indexOf("URUGUAY")!==0 ? " — Doc. extranjero: "+d.nacionalidad : "";
+      out.push({ id:uid(), _on:true, fecha:"", hora:"", cedula:ci, nombre:d.nombre||"", apellido:d.apellido||"",
+        sexo:(d.sexo||"").toUpperCase(), fnac:d.fnac||"", estado:"error",
+        obs:"Documento escaneado NO figura en la planilla"+ex });
+    }
+  });
+
+  return out;
+}
+
+// ───── REVISION ─────
+function renderResultados(){
+  var body=document.getElementById("cotejoBody"), foot=document.getElementById("cotejoFoot");
+  var c={ok:0,error:0,warn:0,nd:0};
+  ses.resultados.forEach(function(r){ c[r.estado]=(c[r.estado]||0)+1; });
+  var badges=[["✓ Sin problemas",c.ok,"var(--grn)"],["✗ Errores",c.error,"var(--red)"],["⚠ Avisos",c.warn,"var(--amb)"],["? Sin verificar",c.nd,"var(--txtD)"]]
+    .filter(function(b){return b[1]>0;})
+    .map(function(b){ return '<div style="display:flex;align-items:center;gap:.35rem;background:'+b[2]+'12;border:1px solid '+b[2]+'35;border-radius:5px;padding:.3rem .7rem;font-size:.68rem;color:'+b[2]+'"><strong style="font-family:var(--mono)">'+b[1]+'</strong> '+b[0]+'</div>'; }).join("");
+
+  var html = ses.err ? '<div class="errbox">⚠ '+esc(ses.err)+'</div>' : "";
+
+  if(!ses.resultados.length){
+    html += '<div style="text-align:center;padding:2rem;color:var(--txtD);font-size:.78rem">No se procesaron registros. Verifica que las imagenes sean nitidas y esten bien encuadradas.</div>';
+    body.innerHTML = html;
+  } else {
+    var todos = ses.resultados.every(function(r){ return r._on; });
+    html += '<div style="display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap">'+badges+'</div>'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem">'+
+      '<span style="font-family:var(--mono);font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;color:var(--txtD)">'+ses.resultados.length+' registro(s)</span>'+
+      '<label style="display:flex;align-items:center;gap:.4rem;font-size:.7rem;color:var(--txtD);cursor:pointer"><input type="checkbox" '+(todos?"checked":"")+' onchange="togTodos(this.checked)" style="accent-color:var(--cyan)"> Seleccionar todos</label></div>';
+    html += ses.resultados.map(function(r,i){
+      var col = r.estado==="ok"?"var(--grn)":r.estado==="error"?"var(--red)":r.estado==="warn"?"var(--amb)":"var(--txtD)";
+      return '<div class="rc '+(r._on?"sel":"")+'" id="rc'+i+'">'+
+        '<div class="rc-grid">'+
+        '<div class="rc-f"><div class="rc-l">Nombre</div><input class="rc-i" value="'+esc(r.nombre)+'" onchange="updR('+i+',\'nombre\',this.value)"></div>'+
+        '<div class="rc-f"><div class="rc-l">Apellido</div><input class="rc-i" value="'+esc(r.apellido)+'" onchange="updR('+i+',\'apellido\',this.value)"></div>'+
+        '<div class="rc-f"><div class="rc-l">Cedula</div><input class="rc-i" value="'+esc(r.cedula)+'" onchange="updR('+i+',\'cedula\',this.value)"></div>'+
+        '<div class="rc-f"><div class="rc-l">Sexo</div><select class="rc-sel" onchange="updR('+i+',\'sexo\',this.value)"><option value="F"'+(r.sexo==="F"?" selected":"")+'>F</option><option value="M"'+(r.sexo==="M"?" selected":"")+'>M</option></select></div>'+
+        '<div class="rc-f"><div class="rc-l">Estado</div><select class="rc-sel" style="color:'+col+'" onchange="updR('+i+',\'estado\',this.value);renderResultados()"><option value="ok"'+(r.estado==="ok"?" selected":"")+'>✓ OK</option><option value="error"'+(r.estado==="error"?" selected":"")+'>✗ Error</option><option value="warn"'+(r.estado==="warn"?" selected":"")+'>⚠ Aviso</option><option value="nd"'+(r.estado==="nd"?" selected":"")+'>? N/D</option></select></div>'+
+        '<div style="display:flex;align-items:center;justify-content:center"><input type="checkbox" '+(r._on?"checked":"")+' onchange="togUno('+i+',this.checked)" style="width:16px;height:16px;accent-color:var(--cyan)"></div>'+
+        '</div>'+
+        (r.obs ? '<div class="rc-obs" style="color:'+col+';background:'+col+'10;border:1px solid '+col+'30">'+esc(r.obs)+'</div>' : "")+
+        '</div>';
+    }).join("");
+    body.innerHTML = html;
   }
 
-  const l = add("Arrancar un worker y leer una imagen de prueba", "…", null);
-  try {
-    await TESS.ready(S.lang, m => { if (m && m.status) fin(l, null, (ENGINE_STEPS[m.status] || m.status) + (typeof m.progress === "number" ? " " + Math.round(m.progress * 100) + "%" : "")); });
-    const c = document.createElement("canvas");
-    c.width = 760; c.height = 150;
-    const g = c.getContext("2d");
-    g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height);
-    g.fillStyle = "#000"; g.font = "bold 58px Arial";
-    g.fillText("DOCUMENTO 30.123.456", 24, 95);
-    const slot = await TESS.take();
-    let txt = "";
-    try { const { data } = await slot.w.recognize(c); txt = (data.text || "").replace(/\s+/g, " ").trim(); }
-    finally { slot.busy = false; }
-    const leyo = onlyDigits(txt).includes("30123456");
-    fin(l, leyo, leyo ? `leyó “${txt.slice(0, 40)}”` : `leyó “${txt.slice(0, 40)}” (se esperaba 30.123.456)`);
-  } catch(e){
-    fin(l, false, (e && e.message) || String(e));
+  var sel = ses.resultados.filter(function(r){return r._on;}).length;
+  foot.innerHTML = '<div style="font-size:.68rem;color:var(--txtD)">'+sel+' / '+ses.resultados.length+' seleccionados</div>'+
+    '<div style="display:flex;gap:.55rem"><button class="btn-c" onclick="irPaso(2)">← Volver</button>'+
+    '<button class="btn-p" style="background:var(--grn)" onclick="importarSel()">✓ Importar seleccionados</button></div>';
+}
+function updR(i,c,v){ ses.resultados[i][c]=v; }
+function togUno(i,v){ ses.resultados[i]._on=v; renderResultados(); }
+function togTodos(v){ ses.resultados.forEach(function(r){ r._on=v; }); renderResultados(); }
+function importarSel(){
+  var sel = ses.resultados.filter(function(r){return r._on;});
+  if(!sel.length){ toast("Selecciona al menos un registro","error"); return; }
+  sel.forEach(function(r){ recs.push({ id:uid(), fecha:r.fecha, hora:r.hora, cedula:r.cedula, nombre:r.nombre, apellido:r.apellido, sexo:r.sexo, fnac:r.fnac, estado:r.estado, obs:r.obs }); });
+  cerrarCotejo(); render(); toast("✓ "+sel.length+" registro(s) cargado(s)","ok");
+}
+
+// ───── PEGAR CSV ─────
+function abrirPegar(){ document.getElementById("pasteTxt").value=""; document.getElementById("pastePrev").textContent=""; document.getElementById("pegarOv").classList.add("show"); }
+function cerrarPegar(){ document.getElementById("pegarOv").classList.remove("show"); }
+document.getElementById("pegarOv").addEventListener("click", function(e){ if(e.target.id==="pegarOv") cerrarPegar(); });
+
+function parseCSV(texto){
+  var lines = (texto||"").trim().split(/\r?\n/).filter(function(l){ return l.trim(); });
+  if(lines.length<2) return [];
+  function split(line){
+    var out=[], cur="", q=false;
+    for(var i=0;i<line.length;i++){
+      var ch=line[i];
+      if(ch==='"') q=!q;
+      else if((ch===","||ch===";") && !q){ out.push(cur); cur=""; }
+      else cur+=ch;
+    }
+    out.push(cur); return out.map(function(s){ return s.trim(); });
   }
-  const motorOk = lines[lines.length - 1].ok === true;
-  $("#prog-title").textContent = motorOk
-    ? (lines.some(x => x.ok === false) ? "El motor funciona (algo se resolvió por el camino alternativo)" : "El motor está listo")
-    : "El motor no pudo arrancar";
-}
-
-/* ============================================================
-   12. Exportar
-   ============================================================ */
-function exportReport(){
-  const personas = S.people.map(p => {
-    const items = p.scans.map(i => scanById(i));
-    return {
-      "Fila": p.fila,
-      "Nombre (planilla)": p.nombre,
-      "Documento (planilla)": p.docDisp,
-      "Estado": ST[p.status] ? ST[p.status].label : p.status,
-      "Escaneos vinculados": items.map(i => i.label).join(" | "),
-      "Documento leído": items.map(i => i.read || "—").join(" | "),
-      "Nombre leído": items.map(i => (i.names[0] || "—")).join(" | "),
-      "Coincidencia de nombre %": items.length ? Math.round(Math.max(...items.map(i => i.nameScore || 0)) * 100) : "",
-      "Observación": p.status === "falta" ? "No llegó ningún escaneo" : items.map(i => i.note).filter(Boolean).join(" | "),
-      "Avisos de planilla": p.flags.join(" | ")
-    };
-  });
-  const escaneos = S.scans.filter(s => s.status !== "split").map(s => {
-    const p = s.personIdx >= 0 ? S.people[s.personIdx] : null;
-    return {
-      "Archivo": s.label,
-      "Estado": ST[s.verdict] ? ST[s.verdict].label : s.verdict,
-      "Documento leído": s.read || "",
-      "Nombre leído": s.names[0] || "",
-      "Corresponde a": p ? p.nombre : "",
-      "Documento en planilla": p ? p.docDisp : "",
-      "Coincidencia de nombre %": Math.round((s.nameScore || 0) * 100),
-      "Confianza OCR %": s.conf || 0,
-      "Observación": s.note || s.error || "",
-      "Otros números leídos": s.docs.slice(1, 6).map(d => fmtPair(d.base, d.dv)).join(", ")
-    };
-  });
-  const resumen = [
-    { "Indicador":"Personas en la planilla", "Cantidad": S.people.length },
-    { "Indicador":"Documentos leídos", "Cantidad": S.scans.filter(s => s.status !== "split").length },
-    ...TILES.map(t => ({ "Indicador": t.label, "Cantidad": tileCount(t) })),
-    { "Indicador":"Planilla", "Cantidad": S.sheet.fileName || "ejemplo" },
-    { "Indicador":"Fecha del informe", "Cantidad": new Date().toLocaleString("es-AR") }
-  ];
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(resumen), "Resumen");
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(personas), "Personas");
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(escaneos), "Escaneos");
-  const stamp = new Date().toISOString().slice(0, 10);
-  XLSX.writeFile(wb, `cotejo-documentos-${stamp}.xlsx`);
-}
-
-/* ============================================================
-   13. Ejemplo cargado al abrir
-   ============================================================ */
-function dniText(o){
-  const d = o.doc;                     /* base sin verificador */
-  const dv = o.dv;
-  const dotted = fmtPair(d, dv);
-  const mrz1 = `IDURY${d}${dv}<<<<<<<<<<<<<<<`;
-  const mrzName = `${normName(o.ape).replace(/\s/g, "<")}<<${normName(o.nom).replace(/\s/g, "<")}<<<<<<<<<`;
-  return [
-    "REPUBLICA ORIENTAL DEL URUGUAY",
-    "DIRECCION NACIONAL DE IDENTIFICACION CIVIL",
-    "CEDULA DE IDENTIDAD",
-    "Apellido / Surname",
-    o.apeOcr || o.ape,
-    "Nombre / Name",
-    o.nomOcr || o.nom,
-    "Sexo / Sex    Nacionalidad / Nationality",
-    `${o.sexo || "M"}             URUGUAYA`,
-    "Fecha de nacimiento / Date of birth",
-    o.nac || "15/03/1985",
-    "Documento / Document",
-    o.docOcr || dotted,
-    "Ejemplar  A",
-    "Fecha de emisión / Date of issue   Fecha de vencimiento / Date of expiry",
-    "12/04/2017                         12/04/2032",
-    `Trámite N° 0012${d}45`,
-    o.noMrz ? "" : mrz1,
-    o.noMrz ? "" : "8503150M3203159URY<<<<<<<<<<<6",
-    o.noMrz ? "" : mrzName
-  ].filter(Boolean).join("\n");
-}
-
-function loadDemo(){
-  const H = ["Apellido y Nombre", "Cédula"];
-  const rows = [
-    ["PEREZ, JUAN CARLOS", "1.222.333-1"],
-    ["GOMEZ ALVAREZ, MARIA LUJAN", "3.456.789-4"],
-    ["FERNANDEZ, LUCAS MARTIN", "4.871.209-9"],
-    ["RODRIGUEZ, ANA SOFIA", "5.102.447-3"],
-    ["LOPEZ, DIEGO ARMANDO", "2.988.015-2"],
-    ["MARTINEZ ROJAS, VALENTINA", "5.439.128-3"],
-    ["SOSA, RAMON ANTONIO", "1.703.366-4"],
-    ["DI MARCO, FLORENCIA BELEN", "4.260.571-1"],
-    ["QUIROGA, NAHUEL EZEQUIEL", "5.588.204-7"],
-    ["BENITEZ, CLAUDIA NOEMI", "2.115.937-3"],
-    ["ACUÑA, MATEO IGNACIO", "5.917.483-2"],
-    ["SILVA, GRACIELA BEATRIZ", "1.348.902-1"]
-  ];
-  S.sheet.fileName = "planilla-ejemplo.xlsx";
-  S.sheet.headers = H;
-  S.sheet.raw = rows.map(r => ({ "Apellido y Nombre": r[0], "Cédula": r[1] }));
-  S.sheet.map = { mode:"full", full:"Apellido y Nombre", ape:"", nom:"", doc:"Cédula" };
-  buildMapUI();
-  applySheetMap();
-
-  const defs = [
-    { f:"ci-perez.jpg",        ape:"PEREZ", nom:"JUAN CARLOS", doc:"1222333", dv:"1", conf:91 },
-    { f:"ci-gomez.jpg",        ape:"GOMEZ ALVAREZ", nom:"MARIA LUJAN", doc:"3456789", dv:"4", sexo:"F", conf:88 },
-    { f:"ci-fernandez.png",    ape:"FERNANDEZ", nom:"LUCAS MARTIN", doc:"4871209", dv:"9", conf:93 },
-    { f:"legajos.pdf · pág. 1", ape:"RODRIGUEZ", nom:"ANA SOFIA", doc:"5102447", dv:"3", sexo:"F", conf:85 },
-    { f:"ci-lopez-borrosa.jpg", ape:"LOPEZ", nom:"DIEGO ARMANDO", nomOcr:"DIEG0 ARMAND0", doc:"2988015", dv:"2", conf:52, noMrz:true },
-    { f:"ci-fila-6.jpg",       ape:"GUTIERREZ", nom:"SOLEDAD MABEL", doc:"5439128", dv:"3", sexo:"F", conf:90 },
-    { f:"ci-sosa.jpg",         ape:"SOSA", nom:"RAMON ANTONIO", doc:"1703366", dv:"4", docOcr:"1.703.356-4", conf:61, noMrz:true },
-    { f:"ci-dimarco.jpg",      ape:"DI MARCO", nom:"FLORENCIA BELEN", doc:"4260571", dv:"1", sexo:"F", conf:89 },
-    { f:"ci-quiroga.jpg",      ape:"QUIROGA", nom:"NAHUEL EZEQUIEL", doc:"5588204", dv:"7", conf:92 },
-    { f:"escaneo-mesa-3.jpg",  ape:"QUIROGA", nom:"NAHUEL EZEQUIEL", doc:"5588204", dv:"7", conf:76 },
-    { f:"ci-torres.jpg",       ape:"TORRES", nom:"SERGIO DANIEL", doc:"4013572", dv:"4", conf:87 }
-  ];
-  S.scans = defs.map(d => {
-    const it = {
-      id: "s" + (++S.seq), file: null, fileName: d.f, page: 0, pages: 1, label: d.f,
-      status: "done", text: dniText(d), conf: d.conf, docs: [], names: [], mrz: null,
-      textTokens: [], thumb: "", manualDoc: "", personIdx: -1, verdict: "", nameScore: 0, note: "", read: ""
-    };
-    return analyzeText(it);
-  });
-  S.demo = true;
-  $("#demo-banner").hidden = false;
-  $("#scan-count").textContent = `${S.scans.length} archivos`;
-  reconcile();
-  refreshRunbar();
-}
-
-function hardReset(){
-  S.sheet = { rows:[], headers:[], raw:[], fileName:"", map:{ mode:"full", full:"", ape:"", nom:"", doc:"" } };
-  S.scans = []; S.people = []; S.ran = false; S.filter = null; S.query = ""; S.demo = false;
-  S.docMode = "auto"; S.docModeEff = "plano"; S.dvCheck = false;
-  $("#sheet-map").hidden = true;
-  $("#sheet-count").textContent = "";
-  $("#scan-count").textContent = "";
-  $("#demo-banner").hidden = true;
-  $("#results").hidden = true;
-  $("#progress-card").hidden = true;
-  $("#q").value = "";
-  $("#brandsub").textContent = "Planilla contra escaneos";
-  closePanel();
-  refreshRunbar();
-}
-function clearDemoIfNeeded(){ if (S.demo) hardReset(); }
-
-/* ============================================================
-   14. Conexiones de la interfaz
-   ============================================================ */
-function wireDrop(zone, input, handler){
-  const el = $(zone);
-  el.addEventListener("click", () => $(input).click());
-  el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " "){ e.preventDefault(); $(input).click(); } });
-  ["dragenter", "dragover"].forEach(ev => el.addEventListener(ev, e => { e.preventDefault(); el.classList.add("over"); }));
-  ["dragleave", "dragend", "drop"].forEach(ev => el.addEventListener(ev, () => el.classList.remove("over")));
-  el.addEventListener("drop", e => { e.preventDefault(); handler(e.dataTransfer.files); });
-}
-
-async function handleSheet(files){
-  const f = Array.from(files || [])[0];
-  if (!f) return;
-  try { clearDemoIfNeeded(); await loadSheetFile(f); }
-  catch(err){
-    $("#sheet-hint").innerHTML = `<span style="color:var(--bad)">No se pudo leer la planilla: ${esc((err && err.message) || String(err))}</span>`;
-    $("#sheet-map").hidden = false;
+  var h = split(lines[0]).map(function(x){ return x.toLowerCase().replace(/[.\s]/g,""); });
+  function idx(keys){ for(var k=0;k<keys.length;k++){ for(var i=0;i<h.length;i++){ if(h[i].indexOf(keys[k])>=0) return i; } } return -1; }
+  var M={fecha:idx(["fecha"]),hora:idx(["hora"]),cedula:idx(["cedula","ci"]),nombre:idx(["nombre"]),apellido:idx(["apellido"]),sexo:idx(["sexo"]),fnac:idx(["nacimiento","fnac"]),estado:idx(["estado"]),obs:idx(["observ","obs"])};
+  var out=[];
+  for(var i=1;i<lines.length;i++){
+    var c=split(lines[i]);
+    function g(k){ return M[k]>=0 ? (c[M[k]]||"") : ""; }
+    if(!g("nombre") && !g("cedula")) continue;
+    var e=(g("estado")||"").toLowerCase();
+    var est = e.indexOf("ok")===0?"ok" : e.indexOf("error")===0?"error" : (e.indexOf("warn")===0||e.indexOf("aviso")===0)?"warn" : "nd";
+    out.push({ id:uid(), fecha:g("fecha"), hora:g("hora"), cedula:g("cedula").replace(/\D/g,""), nombre:g("nombre"), apellido:g("apellido"), sexo:g("sexo").toUpperCase(), fnac:g("fnac"), estado:est, obs:g("obs") });
   }
+  return out;
 }
-function handleScans(files){ clearDemoIfNeeded(); addScanFiles(files); }
+function importarPegado(){
+  var p = parseCSV(document.getElementById("pasteTxt").value);
+  if(!p.length){ toast("No se detectaron registros validos","error"); return; }
+  recs = recs.concat(p); cerrarPegar(); render(); toast("✓ "+p.length+" registros importados","ok");
+}
 
-wireDrop("#drop-sheet", "#in-sheet", handleSheet);
-wireDrop("#drop-scan", "#in-scan", handleScans);
-$("#btn-pick-sheet").addEventListener("click", e => { e.stopPropagation(); $("#in-sheet").click(); });
-$("#btn-pick-scan").addEventListener("click", e => { e.stopPropagation(); $("#in-scan").click(); });
-$("#btn-pick-dir").addEventListener("click", e => { e.stopPropagation(); $("#in-dir").click(); });
-$("#in-sheet").addEventListener("change", e => { handleSheet(e.target.files); e.target.value = ""; });
-$("#in-scan").addEventListener("change", e => { handleScans(e.target.files); e.target.value = ""; });
-$("#in-dir").addEventListener("change", e => { handleScans(e.target.files); e.target.value = ""; });
+// ───── EDICION MANUAL ─────
+function abrirEdit(id){
+  editId = id || null;
+  var r = id ? recs.filter(function(x){return x.id==id;})[0] : null;
+  var now = new Date();
+  var f = { fecha:(r&&r.fecha)||now.toISOString().slice(0,10), hora:(r&&r.hora)||now.toTimeString().slice(0,8),
+    cedula:(r&&r.cedula)||"", nombre:(r&&r.nombre)||"", apellido:(r&&r.apellido)||"", sexo:(r&&r.sexo)||"F",
+    fnac:(r&&r.fnac)||"", estado:(r&&r.estado)||"nd", obs:(r&&r.obs)||"" };
+  function campo(l,id2,t,v,extra){ return '<div><div class="rc-l" style="margin-bottom:.25rem">'+l+'</div><input class="rc-i" style="padding:.46rem .6rem;font-size:.75rem" id="'+id2+'" type="'+t+'" value="'+esc(v)+'" '+(extra||"")+'></div>'; }
+  function sele(l,id2,opts,v){ return '<div><div class="rc-l" style="margin-bottom:.25rem">'+l+'</div><select class="rc-sel" style="padding:.46rem .6rem;font-size:.75rem" id="'+id2+'">'+opts.map(function(o){ return '<option value="'+o[0]+'"'+(o[0]===v?" selected":"")+'>'+o[1]+'</option>'; }).join("")+'</select></div>'; }
+  document.getElementById("editTitle").textContent = id ? "Editar registro" : "Agregar registro";
+  document.getElementById("editBody").innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem">'+
+    campo("Fecha","ef-fecha","date",f.fecha)+campo("Hora","ef-hora","time",f.hora,'step="1"')+
+    campo("Cedula","ef-cedula","text",f.cedula)+sele("Sexo","ef-sexo",[["F","F — Femenino"],["M","M — Masculino"]],f.sexo)+
+    campo("Nombre","ef-nombre","text",f.nombre)+campo("Apellido","ef-apellido","text",f.apellido)+
+    campo("F. Nacimiento","ef-fnac","text",f.fnac)+
+    sele("Estado","ef-estado",[["nd","? No verificado"],["ok","✓ OK"],["error","✗ Error"],["warn","⚠ Aviso"]],f.estado)+
+    '<div style="grid-column:1/-1">'+campo("Observacion","ef-obs","text",f.obs)+'</div></div>';
+  document.getElementById("editOv").classList.add("show");
+}
+function cerrarEdit(){ document.getElementById("editOv").classList.remove("show"); editId=null; }
+document.getElementById("editOv").addEventListener("click", function(e){ if(e.target.id==="editOv") cerrarEdit(); });
+function guardarEdit(){
+  function g(i){ return document.getElementById(i).value; }
+  var r = { fecha:g("ef-fecha"), hora:g("ef-hora"), cedula:g("ef-cedula").replace(/\D/g,""), nombre:g("ef-nombre").trim(),
+    apellido:g("ef-apellido").trim(), sexo:g("ef-sexo"), fnac:g("ef-fnac"), estado:g("ef-estado"), obs:g("ef-obs").trim() };
+  if(!r.nombre || !r.cedula){ toast("Nombre y cedula son obligatorios","error"); return; }
+  if(editId){ for(var i=0;i<recs.length;i++){ if(recs[i].id==editId){ for(var k in r) recs[i][k]=r[k]; } } toast("Actualizado","ok"); }
+  else { r.id=uid(); recs.push(r); toast("Agregado","ok"); }
+  cerrarEdit(); render();
+}
 
-$("#m-mode").addEventListener("change", e => {
-  S.sheet.map.mode = e.target.value;
-  $("#f-full").hidden = e.target.value !== "full";
-  $("#f-ape").hidden = e.target.value !== "split";
-  $("#f-nom").hidden = e.target.value !== "split";
-  applySheetMap();
-});
-["full", "ape", "nom", "doc"].forEach(k => {
-  $("#m-" + k).addEventListener("change", e => { S.sheet.map[k] = e.target.value; applySheetMap(); });
-});
-$("#m-docmode").addEventListener("change", e => { S.docMode = e.target.value; applySheetMap(); });
-$("#m-src").addEventListener("change", e => setPdfMode(e.target.value));
-$("#m-lang").addEventListener("change", e => { S.lang = e.target.value; });
+// ───── TABLA ─────
+function render(){
+  var c={total:recs.length,ok:0,error:0,warn:0,nd:0};
+  recs.forEach(function(r){ c[r.estado]=(c[r.estado]||0)+1; });
+  document.getElementById("sT").textContent=c.total;
+  document.getElementById("sO").textContent=c.ok;
+  document.getElementById("sE").textContent=c.error;
+  document.getElementById("sW").textContent=c.warn;
 
-$("#btn-run").addEventListener("click", runVerification);
-$("#btn-cancel").addEventListener("click", () => { S.cancel = true; });
-$("#btn-reset").addEventListener("click", hardReset);
-$("#btn-export").addEventListener("click", exportReport);
-$("#btn-print").addEventListener("click", () => window.print());
-$("#btn-diag").addEventListener("click", e => { e.stopPropagation(); runDiagnostics(); });
-$("#tab-p").addEventListener("click", () => { S.view = "persons"; if (S.filter && S.filter.view !== "persons") S.filter = null; syncTabs(); render(); });
-$("#tab-s").addEventListener("click", () => { S.view = "scans"; if (S.filter && S.filter.view !== "scans") S.filter = null; syncTabs(); render(); });
-let qt = null;
-$("#q").addEventListener("input", e => { clearTimeout(qt); const v = e.target.value; qt = setTimeout(() => { S.query = v; render(); }, 160); });
+  document.getElementById("filters").innerHTML = [["all","Todos",c.total],["ok","✓ OK",c.ok],["error","✗ Errores",c.error],["warn","⚠ Avisos",c.warn],["nd","? N/V",c.nd]]
+    .map(function(f){
+      var ac = f[0]==="ok"?"var(--grn)":f[0]==="error"?"var(--red)":f[0]==="warn"?"var(--amb)":"var(--cyan)";
+      var on = filtro===f[0];
+      return '<button class="fb" style="'+(on?"border-color:"+ac+";background:"+ac+"18;color:"+ac:"")+'" onclick="setFiltro(\''+f[0]+'\')">'+f[1]+'<span class="fc">'+f[2]+'</span></button>';
+    }).join("");
 
-loadDemo();
-syncTabs();
-checkWorkers().then(ok => {
-  $("#env-banner").hidden = !!ok;
-  refreshRunbar();
-});
+  document.getElementById("thead").innerHTML = [["#",null],["Hora","hora"],["Cedula","cedula"],["Nombre y Apellido","nombre"],["Sexo","sexo"],["F. Nac.","fnac"],["Estado","estado"],["Observacion",null],["",null]]
+    .map(function(h){ return '<th '+(h[1]?'onclick="ordenar(\''+h[1]+'\')"':"")+'>'+h[0]+(h[1]?" ↕":"")+'</th>'; }).join("");
+
+  var rows = recs.filter(function(r){
+    var mf = filtro==="all" || r.estado===filtro;
+    var q = busqueda.toLowerCase();
+    var ms = !q || [r.nombre,r.apellido,r.cedula,r.obs].some(function(v){ return (""+(v||"")).toLowerCase().indexOf(q)>=0; });
+    return mf && ms;
+  });
+  if(ordenC) rows.sort(function(a,b){ return ordenD * (""+(a[ordenC]||"")).localeCompare(""+(b[ordenC]||"")); });
+
+  document.getElementById("tbody").innerHTML = rows.map(function(r,i){
+    var p = PILLS[r.estado]||PILLS.nd;
+    var oc = r.estado==="error"?"o-error":r.estado==="warn"?"o-warn":"";
+    return '<tr class="r-'+r.estado+'">'+
+      '<td class="mono">'+String(i+1).padStart(2,"0")+'</td>'+
+      '<td class="mono">'+(r.hora||"—")+'</td>'+
+      '<td class="mono">'+fmtCI(r.cedula)+'</td>'+
+      '<td class="nm"><strong>'+esc(cap(r.nombre))+' '+esc(cap(r.apellido))+'</strong><span>'+esc(r.fecha||"")+'</span></td>'+
+      '<td>'+(r.sexo||"—")+'</td><td class="mono">'+(r.fnac||"—")+'</td>'+
+      '<td><span class="pill '+p[1]+'">'+p[0]+'</span></td>'+
+      '<td><div class="obs '+oc+'">'+esc(r.obs||"—")+'</div></td>'+
+      '<td><div class="racts"><button class="rab" onclick="abrirEdit(\''+r.id+'\')">✎</button><button class="rab del" onclick="borrar(\''+r.id+'\')">✕</button></div></td></tr>';
+  }).join("");
+
+  document.getElementById("empty").classList.toggle("show", rows.length===0);
+  document.getElementById("tbl").style.display = rows.length===0 ? "none" : "table";
+  document.getElementById("ctTitle").textContent = filtro==="all"?"Todos los registros":filtro==="ok"?"Verificados OK":filtro==="error"?"Errores criticos":filtro==="warn"?"Advertencias":"No verificados";
+  document.getElementById("ctSub").textContent = rows.length+" registro"+(rows.length!==1?"s":"");
+}
+function setFiltro(f){ filtro=f; render(); }
+function ordenar(c){ if(ordenC===c) ordenD*=-1; else { ordenC=c; ordenD=1; } render(); }
+function borrar(id){ if(!confirm("¿Eliminar este registro?")) return; recs=recs.filter(function(r){return r.id!=id;}); render(); toast("Eliminado","info"); }
+function limpiarTodo(){ if(!confirm("¿Limpiar todos los registros?")) return; recs=[]; render(); toast("Limpiado","info"); }
+
+// ───── EXPORT ─────
+function exportarCSV(){
+  if(!recs.length){ toast("Sin registros","error"); return; }
+  var h=["#","Fecha","Hora","Cedula","Nombre","Apellido","Sexo","F.Nacimiento","Estado","Observacion"];
+  var rows=recs.map(function(r,i){ return [i+1,r.fecha,r.hora,r.cedula,r.nombre,r.apellido,r.sexo,r.fnac,(r.estado||"").toUpperCase(),'"'+(r.obs||"").replace(/"/g,"'")+'"']; });
+  var csv=[h.join(",")].concat(rows.map(function(r){return r.join(",");})).join("\n");
+  var a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));
+  a.download="reporte_cotejo_"+new Date().toISOString().slice(0,10)+".csv"; a.click();
+  toast("CSV exportado","ok");
+}
 </script>
 </body>
 </html>
