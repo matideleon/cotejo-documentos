@@ -512,6 +512,17 @@ function analizar(){
   cadena.then(function(){
     msg("Cotejando...");
     ses.resultados = cotejar(docs, plan);
+
+    // Si el modelo no ve la imagen suele inventar datos con formato correcto.
+    // Si ninguna cedula pasa el digito verificador, avisamos fuerte.
+    var leidas = docs.concat(plan).map(function(x){ return soloDig(x.cedula); }).filter(Boolean);
+    var validas = leidas.filter(ciValida).length;
+    if(leidas.length && validas === 0){
+      notas.unshift("ATENCION: ninguna de las "+leidas.length+" cedulas leidas pasa el digito verificador. "+
+        "Es muy probable que el modelo no este viendo las imagenes y este inventando los datos. "+
+        "Usa el boton de prueba del paso 1 y revisa LLM_MODEL.");
+    }
+
     if(notas.length) ses.err = notas.join(" · ");
     ses.paso=3; renderCotejo();
   });
@@ -546,6 +557,17 @@ function probarModelo(){
 
 // ───── LOGICA DE COTEJO ─────
 function soloDig(s){ return (""+(s||"")).replace(/\D/g,""); }
+
+// Digito verificador de la cedula uruguaya. Atrapa tanto errores de lectura
+// como numeros inventados por el modelo.
+function ciValida(ci){
+  var n = soloDig(ci);
+  if(n.length < 7 || n.length > 8) return false;
+  while(n.length < 8) n = "0" + n;
+  var coef = [2,9,8,7,6,3,4], suma = 0;
+  for(var i=0;i<7;i++) suma += parseInt(n.charAt(i),10) * coef[i];
+  return ((10 - (suma % 10)) % 10) === parseInt(n.charAt(7),10);
+}
 function capIrregular(s){ return /[a-z][A-Z]/.test(s) && /[A-Z]{2,}/.test(s); }
 function norm(s){ return (""+(s||"")).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z]/g,""); }
 
@@ -609,6 +631,8 @@ function cotejar(docs, plan){
 
       // Una fila puede tener mas de un problema: se juntan todos y manda el mas grave
       var hallazgos = [];
+      if(ci && !ciValida(ci))
+        hallazgos.push(["error","CEDULA INVALIDA — el digito verificador no cierra. Revisar el numero"]);
       if(venc && venc < hoy)
         hallazgos.push(["error","CEDULA VENCIDA el "+venc+" — documento no vigente al ingreso"]);
       if(sD && sP && sD!==sP)
@@ -643,9 +667,10 @@ function cotejar(docs, plan){
     if(!esta){
       var nat=(d.nacionalidad||"").toUpperCase();
       var ex = nat && nat.indexOf("URUGUAY")!==0 ? " — Doc. extranjero: "+d.nacionalidad : "";
+      var obsExtra = ciValida(ci) ? "" : " · CEDULA INVALIDA: el digito verificador no cierra";
       out.push({ id:uid(), _on:true, fecha:"", hora:"", cedula:ci, nombre:d.nombre||"", apellido:d.apellido||"",
         sexo:(d.sexo||"").toUpperCase(), fnac:d.fnac||"", estado:"error",
-        obs:"Documento escaneado NO figura en la planilla"+ex });
+        obs:"Documento escaneado NO figura en la planilla"+ex+obsExtra });
     }
   });
 
