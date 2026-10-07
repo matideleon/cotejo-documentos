@@ -104,6 +104,14 @@ exports.handler = async (event) => {
       return { statusCode: 200, body: JSON.stringify({ registros: [], aviso: "No se pudo interpretar la respuesta", crudo: String(texto).slice(0, 400) }) };
     }
 
+    // Si vino vacio, devolvemos tambien lo que dijo el modelo y con que modelo
+    // se consulto: sin eso no se distingue "no hay documentos" de "no vio la imagen".
+    if (registros.length === 0) {
+      return { statusCode: 200, headers: { "content-type": "application/json" },
+        body: JSON.stringify({ registros: [], aviso: "El modelo devolvio una lista vacia (modelo: " + modelo + ")",
+          crudo: String(texto).slice(0, 300) }) };
+    }
+
     return { statusCode: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({ registros }) };
 
   } catch (err) {
