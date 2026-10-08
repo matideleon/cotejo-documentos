@@ -18,14 +18,37 @@ por espacios entre columnas y carnés, antes de llamar al modelo. La segmentaci�
 es heurística: revisar siempre que los recortes y la cantidad extraída correspondan
 al original. Si no se reconoce una tabla se mantiene entera y se informa el aviso.
 
-Se hace una llamada por recorte, sin reintentar con imágenes cada vez más pequeñas.
+Se hace una llamada por recorte. Cuando una parte no se puede tomar de una sola vez
+—el límite de diez segundos de la Function en el plan gratuito de Netlify, un timeout
+del proveedor, una respuesta truncada o una cantidad de filas que no cuadra con la
+cuadrícula— se corta más fino y se reintenta, según el caso: una banda se vuelve a
+cortar por las mismas líneas de la cuadrícula, con lo que el control de celdas sigue
+valiendo en cada pedazo y no aparecen filas repetidas; un documento se reintenta con la
+imagen reducida, nunca partido, porque media cédula en cada pedazo es peor que no
+leerlo. El corte se repite hasta tres veces, de modo que en el peor caso una banda baja
+a una fila por llamada y la cantidad de llamadas queda acotada. Un error que no se
+arregla cortando no se reintenta. Todo corte deja su motivo en los avisos. Cortar por
+la cuadrícula no degrada el cotejo, porque cada pedazo pasa el mismo control de celdas
+que el camino normal y más estricto cuanto más chico; marcar esas páginas como lectura
+incompleta pondría la planilla entera en «revisar» por un corte que no perdió ni
+inventó nada, y ahí se pierde cuáles filas hay que mirar de verdad. Las dos lecturas
+que no se pueden validar —las mitades solapadas y la imagen reducida— sí quedan
+marcadas como no completas.
 Esto aumenta la cantidad de llamadas frente a leer una página completa, pero mantiene
 el detalle y reduce la cantidad de registros por respuesta. Una parte fallida queda
 identificada y todo el cotejo queda pendiente de revisión. Se verifica la cantidad de
 filas devueltas contra las celdas detectadas, descontando el encabezado declarado.
 Si la cantidad no coincide, esa respuesta no se incorpora a la tabla y se informa
 qué parte quedó sin leer.
-No se eliminan visitas repetidas ni duplicados por cédula/hora.
+
+En el camino normal no se eliminan visitas repetidas ni duplicados por cédula/hora.
+La única excepción es el último recurso de una planilla sin cuadrícula reconocible que
+además se corta por tiempo: se lee en dos mitades solapadas, con la franja de
+encabezados pegada arriba de la de abajo —sin esa franja el modelo no sabe qué columna
+es cuál y corre los nombres respecto de las cédulas— y ahí sí se descarta lo que
+repite cédula y hora, que es la fila que cayó en el solape, conservando una segunda
+visita de la misma persona a otra hora. Esa lectura nunca se declara completa y queda
+avisada para revisar contra el original.
 
 ## Reglas
 
@@ -74,6 +97,15 @@ PDF, cédulas ni claves en las pruebas ni en el repositorio.
 
 `npm test` ejecuta pruebas locales de comparación y de la Function con un proveedor
 simulado. No consume saldo ni envía documentos. Los fixtures son ficticios.
+
+`tests/browser-smoke.js` y `tests/browser-cortes.js` se evalúan en el navegador sobre
+cualquiera de las dos interfaces servidas localmente, con imágenes sintéticas y un
+`llamar()` simulado: tampoco llaman a un proveedor. El segundo cubre la red de
+seguridad del corte por tiempo: que una banda se subdivida por la cuadrícula sin
+perder filas, que las mitades solapadas descarten la fila del solape pero conserven
+una segunda visita, que un documento se reintente reducido, que una respuesta que no cuadra con la
+cuadrícula se descarte en vez de entrar a la tabla, que la recursión termine acotada y
+que un error ajeno no gaste reintentos.
 
 Se comprobó la preparación visual y una extracción real con `gpt-5-mini` sobre
 dos juegos de PDF autorizados: 12 páginas, 70 carnés y 70 filas de planilla.
