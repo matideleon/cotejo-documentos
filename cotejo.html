@@ -133,9 +133,13 @@ tr.f-error{background:rgba(255,61,87,.035)}tr.f-warn{background:rgba(255,171,0,.
     <div class="fld"><label>Modelo</label><input id="cModelo" placeholder="gpt-6.1-sol"></div>
     <div class="fld"><label>Base URL</label><input id="cBase" placeholder="https://api.openai.com/v1"></div>
   </div>
+  <div class="cfg-g">
+    <div class="fld"><label>Clave de la sala</label><input id="cClave" type="password" placeholder="la que configuro el administrador" autocomplete="off"></div>
+    <div class="fld"><label>Servidor de lectura</label><input id="cEndpoint" placeholder="dejar vacio para el que viene por defecto"></div>
+  </div>
   <div class="hint">
-    Normalmente no hace falta tocar nada aca: publicada en Netlify, la pagina usa <code>/.netlify/functions/analizar</code> y la clave vive en el servidor.
-    Estos campos son para probar otro modelo o proveedor sin redesplegar; la clave que pongas queda en el <code>localStorage</code> de esta maquina y se manda solo al proveedor que indiques.
+    <strong>Clave de la sala</strong> es lo unico que normalmente hay que poner, una sola vez en cada maquina: queda en el <code>localStorage</code> de este navegador y autoriza a usar el servidor de lectura. No es la clave del proveedor, que vive en el servidor y nunca pasa por aca.
+    Los otros campos son para probar otro modelo, otro proveedor u otro servidor sin volver a desplegar; si pones una API key, la pagina llama al proveedor directo desde este navegador.
   </div>
 </div>
 
@@ -188,6 +192,7 @@ tr.f-error{background:rgba(255,61,87,.035)}tr.f-warn{background:rgba(255,171,0,.
 
 <script src="vendor/pdf.min.js"></script>
 <script src="extraccion.js"></script>
+<script src="servidor.js"></script>
 <script src="cotejo-core.js"></script>
 <script src="lectura-imagenes.js"></script>
 <script>
@@ -209,17 +214,25 @@ function leerCfg(){
     CFG.key = localStorage.getItem("cotejo.key") || "";
     CFG.modelo = localStorage.getItem("cotejo.modelo") || "";
     CFG.base = localStorage.getItem("cotejo.base") || "";
+    CFG.clave = localStorage.getItem("cotejo.clave") || "";
+    CFG.endpoint = localStorage.getItem("cotejo.endpoint") || "";
   } catch(e){}
   $("cKey").value = CFG.key; $("cModelo").value = CFG.modelo; $("cBase").value = CFG.base;
+  $("cClave").value = CFG.clave; $("cEndpoint").value = CFG.endpoint;
+  $("cEndpoint").placeholder = Servidor.url();
 }
 function guardarCfg(){
   CFG.key = $("cKey").value.trim();
   CFG.modelo = $("cModelo").value.trim();
   CFG.base = $("cBase").value.trim().replace(/\/+$/, "");
+  CFG.clave = $("cClave").value.trim();
+  CFG.endpoint = $("cEndpoint").value.trim().replace(/\/+$/, "");
   try {
     localStorage.setItem("cotejo.key", CFG.key);
     localStorage.setItem("cotejo.modelo", CFG.modelo);
     localStorage.setItem("cotejo.base", CFG.base);
+    localStorage.setItem("cotejo.clave", CFG.clave);
+    localStorage.setItem("cotejo.endpoint", CFG.endpoint);
   } catch(e){}
 }
 
@@ -347,20 +360,11 @@ function llamarModelo(dataUrl, tipo, parte){
   var b64 = dataUrl.split(",")[1];
   var mt = (dataUrl.split(";")[0]||"").split(":")[1] || "image/jpeg";
 
+  // Camino normal: el servidor guarda la clave del proveedor y el operador no
+  // maneja ninguna. Servidor.pedir resuelve a donde va y traduce los errores.
   if(!CFG.key){
-    return fetch("/.netlify/functions/analizar", {
-      method:"POST", headers:{ "content-type":"application/json" },
-      body: JSON.stringify({ image:b64, mediaType:mt, tipo:tipo, contexto:parte.contexto, descripcion:parte.descripcion })
-    }).then(leerRespuesta).then(function(d){
-      if(d.error){
-        var msg = d.error + (d.detalle ? " — " + d.detalle : "");
-        // El servidor no tiene la clave, pero se puede trabajar igual pegandola en Ajustes.
-        if(/falta la clave|api[ _-]?key/i.test(msg))
-          msg += " — o pega tu API key en ⚙ Ajustes y la pagina llama al proveedor directo, sin tocar Netlify.";
-        throw new Error(msg);
-      }
-      return Extraccion.validar(d);
-    });
+    return Servidor.pedir({ image:b64, mediaType:mt, tipo:tipo, contexto:parte.contexto, descripcion:parte.descripcion })
+      .then(function(d){ return Extraccion.validar(d); });
   }
 
   var base = CFG.base || "https://api.openai.com/v1";
@@ -587,7 +591,7 @@ function tablaCSV(){
 /* ───── eventos ───── */
 leerCfg();
 $("btnCfg").onclick = function(){ $("cfg").classList.toggle("show"); };
-["cKey","cModelo","cBase"].forEach(function(id){ $(id).addEventListener("change", guardarCfg); });
+["cKey","cModelo","cBase","cClave","cEndpoint"].forEach(function(id){ $(id).addEventListener("change", guardarCfg); });
 
 [["dDoc","fDoc","doc"],["dPlan","fPlan","plan"]].forEach(function(x){
   var drop = $(x[0]), input = $(x[1]), kind = x[2];
