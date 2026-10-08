@@ -58,9 +58,12 @@ header{display:flex;align-items:center;justify-content:space-between;gap:1rem;pa
 .drop-t{font-size:.79rem;color:var(--txtB);margin-top:.5rem}
 .drop-s{font-size:.69rem;color:var(--txtD);margin-top:.22rem}
 .minis{display:flex;flex-wrap:wrap;gap:.4rem;padding:0 .85rem .85rem}
-.mini{position:relative;width:58px;height:44px;border-radius:5px;overflow:hidden;border:1px solid var(--brd2);background:var(--sur2)}
-.mini img{width:100%;height:100%;object-fit:cover}
-.mini button{position:absolute;top:2px;right:2px;width:15px;height:15px;border:none;border-radius:50%;background:rgba(255,61,87,.92);color:#fff;font-size:.55rem;cursor:pointer;display:grid;place-items:center;padding:0}
+.mini{position:relative;width:76px;height:58px;border-radius:5px;overflow:hidden;border:1px solid var(--brd2);background:#fff}
+.mini img{width:100%;height:100%;object-fit:contain}
+.mini button{position:absolute;top:2px;width:16px;height:16px;border:none;border-radius:50%;color:#fff;font-size:.6rem;cursor:pointer;display:grid;place-items:center;padding:0;line-height:1}
+.mini .rm{right:2px;background:rgba(255,61,87,.92)}
+.mini .rot{left:2px;background:rgba(0,0,0,.6)}
+.mini .rot:hover{background:var(--cyan);color:var(--bg)}
 
 .accion{display:flex;align-items:center;gap:.9rem;margin-top:1.1rem;flex-wrap:wrap}
 .btn{background:var(--cyan);border:none;color:var(--bg);border-radius:9px;padding:.78rem 1.7rem;font-family:var(--mono);font-size:.72rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;box-shadow:0 0 26px rgba(0,229,255,.17)}
@@ -155,7 +158,7 @@ tr.f-error{background:rgba(255,61,87,.035)}tr.f-warn{background:rgba(255,171,0,.
     <div class="drop" id="dPlan">
       <div class="drop-e">📄</div>
       <div class="drop-t">Arrastra la planilla</div>
-      <div class="drop-s">Se leen todas las filas de cada hoja · JPG · PNG · PDF</div>
+      <div class="drop-s">Se leen todas las filas de cada hoja · JPG · PNG · PDF<br>Si queda de costado, girala con ↻ antes de cotejar</div>
     </div>
     <div class="minis" id="mPlan"></div>
   </div>
@@ -298,7 +301,7 @@ function cargar(files, kind){
 
   arr.forEach(function(f){
     S.cargando++; pintarEstado();
-    var p = esPDF(f) ? pdfAImagenes(f, 2000) : comprimir(f, 1600).then(function(u){ return u ? [u] : []; });
+    var p = esPDF(f) ? pdfAImagenes(f, 3000) : comprimir(f, 2200).then(function(u){ return u ? [u] : []; });
     p.then(function(pags){
       if(!pags.length) toast("No se pudo leer " + f.name, "err");
       S[kind] = S[kind].concat(pags);
@@ -316,7 +319,9 @@ function pintarZonas(){
     $("n"+id).textContent = S[k].length + " pag.";
     $("z"+id).classList.toggle("lista", S[k].length > 0);
     $("m"+id).innerHTML = S[k].map(function(u,i){
-      return '<div class="mini"><img src="'+u+'"><button data-k="'+k+'" data-i="'+i+'">✕</button></div>';
+      return '<div class="mini"><img src="'+u+'">' +
+        '<button class="rot" title="Girar 90°" data-rot="1" data-k="'+k+'" data-i="'+i+'">↻</button>' +
+        '<button class="rm" title="Quitar" data-k="'+k+'" data-i="'+i+'">✕</button></div>';
     }).join("");
   });
 }
@@ -411,6 +416,26 @@ function leerRespuesta(r){
     var d; try { d = JSON.parse(t); } catch(e){ d = { error:"respuesta no valida (HTTP " + r.status + "): " + t.slice(0,180) }; }
     if(!r.ok && !d.error) d.error = "HTTP " + r.status + " — " + t.slice(0,180);
     return d;
+  });
+}
+
+// Gira una pagina 90 grados. Una planilla escaneada de costado el modelo no
+// la lee, y rotarla antes de mandarla es la diferencia entre leerla o no.
+function rotar(dataUrl){
+  return new Promise(function(res){
+    var img = new Image();
+    img.onload = function(){
+      var c = document.createElement("canvas");
+      c.width = img.height; c.height = img.width;
+      var x = c.getContext("2d");
+      x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height);
+      x.translate(c.width/2, c.height/2);
+      x.rotate(Math.PI/2);
+      x.drawImage(img, -img.width/2, -img.height/2);
+      res(c.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = function(){ res(dataUrl); };
+    img.src = dataUrl;
   });
 }
 
@@ -684,7 +709,12 @@ $("btnCfg").onclick = function(){ $("cfg").classList.toggle("show"); };
 document.addEventListener("click", function(e){
   var b = e.target.closest ? e.target.closest(".mini button") : null;
   if(!b) return;
-  S[b.dataset.k].splice(+b.dataset.i, 1);
+  var k = b.dataset.k, i = +b.dataset.i;
+  if(b.dataset.rot){
+    rotar(S[k][i]).then(function(u){ S[k][i] = u; pintarZonas(); });
+    return;
+  }
+  S[k].splice(i, 1);
   pintarZonas(); pintarEstado();
 });
 
