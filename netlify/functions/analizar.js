@@ -65,7 +65,9 @@ exports.handler = async (event) => {
       ],
     }],
   };
-  if (esOpenAI) cuerpo.max_completion_tokens = 4000;
+  // En los modelos que razonan (familia GPT-5) este tope incluye el razonamiento:
+  // si queda corto, el modelo lo gasta pensando y devuelve texto vacio.
+  if (esOpenAI) cuerpo.max_completion_tokens = 16000;
   else cuerpo.max_tokens = 4000;
 
   const cabeceras = {
