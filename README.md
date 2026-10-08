@@ -70,42 +70,81 @@ avisada para revisar contra el original.
 
 ## Configuración y despliegue
 
-Importa el repositorio en Netlify: directorio publicado `.`, funciones en
-`netlify/functions`, sin comando de build. Es necesario desplegar las funciones;
-arrastrar solo HTML a un hosting estático no configura el servidor.
+La página es estática y la clave del proveedor vive en un servidor aparte, porque
+el operador de la sala no tiene que manejar ninguna clave de API. Son dos piezas
+independientes y cada una se publica donde conviene.
 
-Variables de entorno de las Functions:
+**Página (GitHub Pages).** Settings → Pages → Source: *Deploy from a branch*,
+rama `main`, carpeta `/ (root)`. No hace falta build ni workflow: los HTML y
+`vendor/` están en la raíz, y `.nojekyll` evita que Jekyll toque nada. Los
+despliegues son gratis e ilimitados, que es justo lo que Netlify dejó de ser:
+en su plan de créditos cada despliegue a producción cuesta 15 de los 300
+mensuales, así que iterar sale caro antes de que la app consuma nada.
 
-| Variable | Uso |
+**Servidor de lectura (Supabase Edge Function).** El código está en
+`supabase/functions/analizar/`. Da 150 segundos para responder, frente a los 10
+del plan gratuito de Netlify; el tope de 2 s de CPU no molesta porque esperar al
+proveedor es I/O y no cuenta. Se despliega con
+`supabase functions deploy analizar`. `extraccion.js` dentro de esa carpeta es un
+enlace simbólico al de la raíz: los prompts y la validación son los mismos en el
+navegador y en el servidor, sin copias que se desincronicen.
+
+Secretos del proyecto de Supabase (Edge Functions → Secrets):
+
+| Secreto | Uso |
 | --- | --- |
+| `COTEJO_CLAVE` | **Obligatorio.** Clave compartida de la sala. Sin ella la función responde 503 y no atiende a nadie: la URL es pública y una función abierta con la clave del proveedor adentro es plata de cualquiera que la encuentre. |
 | `LLM_API_KEY` | Clave del proveedor. También acepta `OPENAI_API_KEY` o `OPENROUTER_API_KEY`. |
 | `LLM_BASE_URL` | Endpoint compatible con Chat Completions. Por defecto `https://api.openai.com/v1`. |
-| `LLM_MODEL` | Modelo con visión disponible en tu proveedor. También acepta `OPENAI_MODEL`. Se conserva el predeterminado existente `gpt-6.1-sol`; comprobar disponibilidad en tu cuenta. |
+| `LLM_MODEL` | Modelo con visión. También acepta `OPENAI_MODEL`. Por defecto `gpt-5-mini`, que es el verificado sobre estos escaneos; comprobar disponibilidad en tu cuenta antes de cambiarlo. |
 | `LLM_IMAGE_DETAIL` | Por defecto `high`. Un detalle menor puede empeorar la lectura de texto. |
+| `COTEJO_ORIGEN` | Opcional. Restringe CORS a un origen; por defecto `*`. No reemplaza a `COTEJO_CLAVE`: CORS lo respeta un navegador, no un script. |
 
-La versión simple también admite clave y proveedor en Ajustes para llamadas directas
-(la clave se guarda en localStorage). Con la clave vacía llama a Netlify. Para abrir
-localmente, conserva `vendor/`, `extraccion.js`, `cotejo-core.js` y
-`lectura-imagenes.js` junto a los HTML. La clave no se incluye en el código.
+La clave de la sala se pone **una sola vez por máquina**: la versión simple tiene
+el campo en ⚙ Ajustes y la completa la pide la primera vez que hace falta. Queda
+en el `localStorage` de ese navegador. No es la clave del proveedor, que nunca
+pasa por el navegador.
 
-La función espera hasta 45 segundos; el límite real del hosting puede ser menor.
-No hay reintentos automáticos que oculten fallas o multipliquen llamadas.
-Los datos se envían al proveedor configurado para su extracción. No se guardan
-PDF, cédulas ni claves en las pruebas ni en el repositorio.
+Ajustes de la versión simple admite además otro servidor de lectura, y clave y
+proveedor para llamadas directas desde el navegador sin pasar por el servidor
+(útil para probar otro modelo sin volver a desplegar).
+
+El despliegue de Netlify sigue funcionando sin cambios: servida desde un dominio
+`netlify.app`, la página usa su ruta relativa `/.netlify/functions/analizar` y no
+depende de Supabase. Para abrir localmente, conserva `vendor/`, `extraccion.js`,
+`cotejo-core.js`, `lectura-imagenes.js` y `servidor.js` junto a los HTML.
+
+Un proyecto gratuito de Supabase se pausa tras aproximadamente una semana sin
+uso: si la sala estuvo cerrada, la primera corrida puede fallar hasta despausarlo
+desde el panel.
+
+La función espera hasta 120 segundos y corta antes del límite del hosting para
+poder decir por qué en vez de devolver un 504 que no explica nada. Los datos se
+envían al proveedor configurado para su extracción. No se guardan PDF, cédulas
+ni claves en las pruebas ni en el repositorio.
 
 ## Verificación
 
 `npm test` ejecuta pruebas locales de comparación y de la Function con un proveedor
 simulado. No consume saldo ni envía documentos. Los fixtures son ficticios.
 
-`tests/browser-smoke.js` y `tests/browser-cortes.js` se evalúan en el navegador sobre
+`tests/browser-smoke.js`, `tests/browser-cortes.js` y `tests/browser-servidor.js`
+se evalúan en el navegador sobre
 cualquiera de las dos interfaces servidas localmente, con imágenes sintéticas y un
 `llamar()` simulado: tampoco llaman a un proveedor. El segundo cubre la red de
 seguridad del corte por tiempo: que una banda se subdivida por la cuadrícula sin
 perder filas, que las mitades solapadas descarten la fila del solape pero conserven
 una segunda visita, que un documento se reintente reducido, que una respuesta que no cuadra con la
 cuadrícula se descarte en vez de entrar a la tabla, que la recursión termine acotada y
-que un error ajeno no gaste reintentos.
+que un error ajeno no gaste reintentos. El tercero cubre el cliente del servidor
+de lectura: a dónde va por defecto, que la clave de la sala viaje en la cabecera y
+solo si está guardada, que un 401 se reconozca como falta de clave, que un 504 con
+HTML de gateway se traduzca a un mensaje que siga disparando el corte en partes, y
+que un fallo de red diga a qué servidor no se pudo llegar.
+
+La función de Supabase no tiene pruebas locales en este repositorio: su validación
+de entrada es la misma que la de `netlify/functions/analizar.js`, que sí está
+cubierta por `tests/api.test.cjs`.
 
 Se comprobó la preparación visual y una extracción real con `gpt-5-mini` sobre
 dos juegos de PDF autorizados: 12 páginas, 70 carnés y 70 filas de planilla.

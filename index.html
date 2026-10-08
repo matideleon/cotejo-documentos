@@ -224,6 +224,7 @@ textarea.paste{width:100%;min-height:170px;background:var(--sur2);border:1px sol
 
 <script src="vendor/pdf.min.js"></script>
 <script src="extraccion.js"></script>
+<script src="servidor.js"></script>
 <script src="cotejo-core.js"></script>
 <script src="lectura-imagenes.js"></script>
 <script>
@@ -407,17 +408,20 @@ function setupDrop(id,kind){
   d.ondrop=function(e){ e.preventDefault(); d.classList.remove("over"); addImgs(e.dataTransfer.files,kind); };
 }
 
-// ───── LLAMADA A LA NETLIFY FUNCTION ─────
+// ───── LLAMADA AL SERVIDOR DE LECTURA ─────
+// La clave del proveedor vive en el servidor; el operador no maneja ninguna.
+// Esta interfaz no tiene panel de ajustes, asi que si falta la clave de la
+// sala se pide una vez y queda guardada en esta maquina.
 function pedirAnalisis(dataUrl,tipo,parte){
   parte=parte||{};
-  return fetch("/.netlify/functions/analizar",{
-    method:"POST",headers:{"content-type":"application/json"},
-    body:JSON.stringify({image:dataUrl.split(",")[1],mediaType:dataUrl.split(";")[0].split(":")[1],tipo:tipo,contexto:parte.contexto,descripcion:parte.descripcion})
-  }).then(async function(r){
-    var d;try{d=await r.json();}catch(e){throw new Error("El servidor no completó la lectura de esta parte.");}
-    if(!r.ok||d.error)throw new Error(d.error||"No se completó la lectura.");
-    return Extraccion.validar(d);
-  });
+  var pedido={image:dataUrl.split(",")[1],mediaType:dataUrl.split(";")[0].split(":")[1],tipo:tipo,contexto:parte.contexto,descripcion:parte.descripcion};
+  return Servidor.pedir(pedido).catch(function(e){
+    if(!Servidor.faltaClave(e))throw e;
+    var v=prompt("Clave de acceso de la sala (queda guardada en esta maquina):");
+    if(!v)throw e;
+    Servidor.guardarClave(v);
+    return Servidor.pedir(pedido);
+  }).then(function(d){ return Extraccion.validar(d); });
 }
 function analizarImagen(dataUrl,tipo){
   return LecturaImagenes.leer(dataUrl,tipo,pedirAnalisis).then(function(r){
@@ -476,11 +480,7 @@ function probarModelo(){
   out.textContent = "Consultando al modelo...";
   var b64 = url.split(",")[1];
   var mt = (url.split(";")[0]||"").split(":")[1] || "image/jpeg";
-  fetch("/.netlify/functions/analizar", {
-    method:"POST", headers:{"content-type":"application/json"},
-    body: JSON.stringify({ image:b64, mediaType:mt, tipo:"prueba" })
-  }).then(function(r){ return r.json(); }).then(function(d){
-    if(d.error){ out.innerHTML = '<span style="color:var(--red)">Error: '+esc(d.error)+(d.detalle?" — "+esc(d.detalle):"")+'</span>'; return; }
+  Servidor.pedir({ image:b64, mediaType:mt, tipo:"prueba" }).then(function(d){
     var r = d.respuesta || "(sin respuesta)";
     var ciego = /NO RECIBI IMAGEN/i.test(r);
     out.innerHTML =

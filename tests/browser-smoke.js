@@ -11,7 +11,10 @@ return (async()=>{
  let calls=0,headerUsed=false;
  const d={cedula:'12345672',nombre:'ANA MARIA',apellido:'PEREZ GOMEZ',sexo:'F',fnac:'1980-04-05',vencimiento:'2030-01-01',pais_documento:'Uruguay'};
  window.fetch=async(url,options)=>{
-  if(!String(url).includes('/.netlify/functions/analizar'))return originalFetch(url,options);
+  // A donde va el servidor de lectura lo decide Servidor.url(): la pagina ya no
+  // vive al lado de la funcion, asi que no se puede fijar la ruta aca.
+  if(String(url)!==Servidor.url())return originalFetch(url,options);
+  if(options.headers['x-cotejo-clave']!=='clave-de-prueba')throw new Error('FAIL: la peticion no llevo la clave de la sala');
   calls++;const input=JSON.parse(options.body);let rows=[],encabezados=0;
   if(input.tipo==='documento')rows=[d];
   else {
@@ -22,6 +25,11 @@ return (async()=>{
   return new Response(JSON.stringify({registros:rows,lectura_completa:true,advertencias:[],encabezados}),{status:200,headers:{'content-type':'application/json'}});
  };
  try{
+  // La clave de la sala se pone donde la pone el operador en cada interfaz: en
+  // el campo de Ajustes en la simple, en el localStorage en la completa, que no
+  // tiene panel. Si una de las dos no la manda, el stub falla.
+  if(simple){document.getElementById('cClave').value='clave-de-prueba';}
+  else{Servidor.guardarClave('clave-de-prueba');}
   if(simple){document.getElementById('cKey').value='';S.doc=[docURL];S.plan=[planURL];pintarZonas();}
   else{abrirCotejo();ses.docUrls=[docURL];ses.planUrls=[planURL];}
   analizar();
