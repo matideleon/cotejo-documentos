@@ -38,10 +38,9 @@
     if(hy.length<8)return {partes:[{url:jpeg(recorte(img,0,0,img.width,img.height))}],url:girada?jpeg(img):null,avisos:['No se reconoció la cuadrícula: se leyó la página completa. Verificar orientación y cantidad de filas.']};
     var diffs=hy.slice(1).map(function(v,i){return v-hy[i];}), orden=diffs.slice().sort(function(a,b){return a-b;}), med=orden[Math.floor(orden.length/2)];
     if(med<7 || diffs.some(function(d){return d<med*.55||d>med*1.6;}))return {partes:[{url:jpeg(recorte(img,0,0,img.width,img.height))}],url:girada?jpeg(img):null,avisos:['Cuadrícula irregular: verificar cantidad de filas.']};
-    var contexto=canvas(img.width*.4,img.height*.4);contexto.getContext('2d').drawImage(img,0,0,contexto.width,contexto.height);
     var partes=[],n=hy.length-1;
     for(var a=0;a<n;a+=7){var b=Math.min(a+7,n),y0=Math.max(0,Math.floor(hy[a]/p.k)-3),y1=Math.min(img.height,Math.ceil(hy[b]/p.k)+3);
-      partes.push({celdas:b-a,url:jpeg(recorte(img,0,y0,img.width,y1-y0)),contexto:contexto.toDataURL('image/jpeg',.85),descripcion:'Banda '+(partes.length+1)+'. La imagen principal contiene '+(b-a)+' celdas horizontales (incluye encabezado si aparece). Extrae todas las filas de datos de esta banda. La segunda imagen es la página completa SOLO como contexto.'});
+      partes.push({celdas:b-a,url:jpeg(recorte(img,0,y0,img.width,y1-y0)),descripcion:'Banda '+(partes.length+1)+'. La imagen principal contiene '+(b-a)+' celdas horizontales (incluye encabezado si aparece). Extrae todas las filas de datos de esta banda. No hay otras filas fuera de esta banda para extraer.'});
     }
     return {partes:partes,url:girada?jpeg(img):null,avisos:[]};
   }
@@ -72,15 +71,15 @@
       try{
         var r=await llamar(prep.partes[i].url,tipo,prep.partes[i]);
         if(!Array.isArray(r.registros))throw new Error('Respuesta sin registros.');
-        r.registros.forEach(function(d,j){d._parte=i+1;d._registro=j+1;regs.push(d);});
-        if(!r.lectura_completa)completa=false;
         var parte=prep.partes[i];
         if(parte.celdas && (r.encabezados===null || r.encabezados===undefined || r.registros.length+r.encabezados!==parte.celdas)){
-          completa=false;warnings.push('Parte '+(i+1)+': la cantidad de filas leídas no coincide con la cuadrícula. Revisar el original.');
+          throw new Error('La cantidad de filas leídas no coincide con la cuadrícula. Revisar el original.');
         }
         if(parte.esperados && r.registros.length!==parte.esperados){
-          completa=false;warnings.push('Parte '+(i+1)+': cantidad de documentos inesperada. Revisar el recorte.');
+          throw new Error('Cantidad de documentos inesperada. Revisar el recorte.');
         }
+        r.registros.forEach(function(d,j){d._parte=i+1;d._registro=j+1;regs.push(d);});
+        if(!r.lectura_completa)completa=false;
         warnings=warnings.concat((r.advertencias||[]).map(function(t){return 'Parte '+(i+1)+': '+t;}));
       }catch(e){completa=false;warnings.push('Parte '+(i+1)+' sin leer: '+e.message);}
     }

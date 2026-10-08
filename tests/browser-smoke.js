@@ -30,6 +30,12 @@ return (async()=>{
   if(rows.length!==7||rows.some(r=>r.estado!=='ok'))throw new Error('Resultado UI incorrecto: '+JSON.stringify(rows.map(r=>({e:r.estado,o:r.obs}))));
   if(simple){const before=S.docs[0].cedula;corregir(0,'cedula','99999999');if(S.docs[0].cedula!==before)throw new Error('La edición alteró el documento');if(!tablaCSV().includes('Ana'))throw new Error('CSV incompleto');}
   else{updR(0,'nombre','Lucía');if(ses.resultados[0].estado!=='warn')throw new Error('Edición sin revisión');importarSel();if(recs.length!==7)throw new Error('Importación incompleta');}
-  return {interfaz:simple?'simple':'completa',filas:7,llamadasSimuladas:calls,edicionVerificada:true};
+  const prepared=await LecturaImagenes.preparar(planURL,'planilla');
+  if(prepared.partes.some(p=>p.contexto))throw new Error('La planilla volvió a incluir filas ajenas como contexto');
+  for(const extra of [-1,1]){
+   const partial=await LecturaImagenes.leer(planURL,'planilla',async(url,tipo,parte)=>({registros:Array(Math.max(0,parte.celdas+extra)).fill(d),encabezados:0,lectura_completa:true,advertencias:[]}));
+   if(partial.regs.length||partial.lectura_completa||!partial.advertencias.length)throw new Error('Se aceptaron filas de una respuesta con cantidad incorrecta');
+  }
+  return {interfaz:simple?'simple':'completa',filas:7,llamadasSimuladas:calls,edicionVerificada:true,cantidadesIncorrectasRechazadas:true,contextoSinFilasAjenas:true};
  }finally{window.fetch=originalFetch;}
 })()

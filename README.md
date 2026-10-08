@@ -13,7 +13,7 @@ Las dos usan las mismas reglas de lectura y comparación.
 
 PDF e imágenes se conservan hasta 3600 px, JPEG de alta calidad. Las planillas
 con cuadrícula reconocible se orientan y dividen en bandas de hasta siete filas,
-con la página completa como referencia de columnas. Los documentos se separan
+sin enviar otras filas como imagen de contexto. Los documentos se separan
 por espacios entre columnas y carnés, antes de llamar al modelo. La segmentación
 es heurística: revisar siempre que los recortes y la cantidad extraída correspondan
 al original. Si no se reconoce una tabla se mantiene entera y se informa el aviso.
@@ -23,6 +23,8 @@ Esto aumenta la cantidad de llamadas frente a leer una página completa, pero ma
 el detalle y reduce la cantidad de registros por respuesta. Una parte fallida queda
 identificada y todo el cotejo queda pendiente de revisión. Se verifica la cantidad de
 filas devueltas contra las celdas detectadas, descontando el encabezado declarado.
+Si la cantidad no coincide, esa respuesta no se incorpora a la tabla y se informa
+qué parte quedó sin leer.
 No se eliminan visitas repetidas ni duplicados por cédula/hora.
 
 ## Reglas
@@ -73,10 +75,20 @@ PDF, cédulas ni claves en las pruebas ni en el repositorio.
 `npm test` ejecuta pruebas locales de comparación y de la Function con un proveedor
 simulado. No consume saldo ni envía documentos. Los fixtures son ficticios.
 
-Se comprobó localmente la preparación visual de dos juegos de PDF: 12 páginas,
-70 carnés y 70 filas de planilla. Esto verifica orientación, separación y cobertura;
-**no mide la precisión final del modelo**. La extracción real de esta versión sigue
-pendiente de probar con el proveedor y modelo del entorno de destino.
+Se comprobó la preparación visual y una extracción real con `gpt-5-mini` sobre
+dos juegos de PDF autorizados: 12 páginas, 70 carnés y 70 filas de planilla.
+La versión final devolvió las 70 filas, sin las siete duplicadas que aparecieron
+al enviar la página completa como contexto. Se contrastaron número, nombre,
+apellido, sexo y fechas de las planillas: un apellido quedó vacío y advertido;
+los demás campos de esa comparación coincidieron con el original, ignorando
+mayúsculas y tildes. Esta medición corresponde a una ejecución, no garantiza
+la precisión futura ni valida automáticamente el contenido de los documentos.
+
+La lectura de los carnés conservó los 70 registros. Se detectó un número de
+cédula mal transcrito; el cotejo lo marcó para revisión, sin corregirlo por su
+cuenta. Los frentes aportados no muestran sexo: ese campo se dejó sin verificar.
+Una interrupción local de Internet obligó a recuperar las partes fallidas durante
+la validación. Las pruebas automáticas siguen usando exclusivamente datos ficticios.
 
 Archivos: `cotejo-core.js` contiene las reglas; `extraccion.js`, el contrato y los
 prompts compartidos; `lectura-imagenes.js`, la preparación de páginas; la Function
