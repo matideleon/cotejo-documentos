@@ -388,7 +388,9 @@ function llamarModelo(dataUrl, tipo){
     ]}]
   };
   // OpenAI usa max_completion_tokens; el resto de los proveedores, max_tokens.
-  if(base.indexOf("api.openai.com") !== -1) cuerpo.max_completion_tokens = 4000;
+  // En los modelos que razonan (familia GPT-5) ese tope incluye el razonamiento:
+  // si queda corto, el modelo lo gasta pensando y devuelve texto vacio.
+  if(base.indexOf("api.openai.com") !== -1) cuerpo.max_completion_tokens = 16000;
   else cuerpo.max_tokens = 4000;
 
   return fetch(base + "/chat/completions", {
@@ -519,7 +521,14 @@ function cotejar(docs, plan){
   // Documento escaneado que no aparece en la planilla: siempre error.
   docs.forEach(function(d){
     var ci = soloDig(d.cedula);
-    if(!ci) return;
+    // Sin cedula no se puede cruzar, pero el documento se leyo: se muestra igual
+    // para completarlo a mano, en vez de desaparecer sin dejar rastro.
+    if(!ci){
+      out.push({ _p:null, _d:d, fecha:"", hora:"", cedula:"", nombre:d.nombre||"",
+        apellido:d.apellido||"", sexo:(d.sexo||"").toUpperCase(), fnac:d.fnac||"",
+        estado:"error", obs:"No se pudo leer la cedula de este documento — escribila a mano para cotejarlo" });
+      return;
+    }
     for(var i = 0; i < plan.length; i++) if(soloDig(plan[i].cedula) === ci) return;
     var nat = (d.nacionalidad||"").toUpperCase();
     out.push({ _p:null, _d:d, fecha:"", hora:"", cedula:ci, nombre:d.nombre||"", apellido:d.apellido||"",
@@ -552,8 +561,11 @@ function analizar(){
       $("estado").innerHTML = '<span class="sp"></span>Leyendo ' + t.etq + ' (' + (hechas+1) + '/' + total + ')...';
       return leerPagina(t.url, t.tipo).then(function(r){
         hechas++;
-        if(!Array.isArray(r.regs)) notas.push({ etq:t.etq, msg:"no se pudo interpretar la respuesta" + (r.crudo ? " — dijo: " + r.crudo : "") });
-        else if(!r.regs.length) notas.push({ etq:t.etq, msg:"el modelo no devolvio ningun registro" + (r.crudo ? " — dijo: " + r.crudo : "") });
+        // Sin texto crudo el modelo no llego a contestar nada: el motivo tipico
+        // es que gasto el presupuesto de tokens razonando antes de escribir.
+        var VACIO = "el modelo respondio vacio — suele quedarse sin tokens razonando: proba una hoja con menos documentos";
+        if(!Array.isArray(r.regs)) notas.push({ etq:t.etq, msg: r.crudo ? "no se pudo interpretar la respuesta — dijo: " + r.crudo : VACIO });
+        else if(!r.regs.length) notas.push({ etq:t.etq, msg: r.crudo ? "el modelo no devolvio ningun registro — dijo: " + r.crudo : VACIO });
         else if(t.tipo === "documento") S.docs = S.docs.concat(r.regs);
         else S.regs = S.regs.concat(r.regs);
       }).catch(function(e){
