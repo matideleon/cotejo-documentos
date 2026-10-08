@@ -134,9 +134,8 @@ tr.f-error{background:rgba(255,61,87,.035)}tr.f-warn{background:rgba(255,171,0,.
     <div class="fld"><label>Base URL</label><input id="cBase" placeholder="https://api.openai.com/v1"></div>
   </div>
   <div class="hint">
-    La clave se guarda en <code>localStorage</code> de esta maquina y se manda solo al proveedor que indiques.
-    Sirve cualquier API compatible con OpenAI (OpenAI, OpenRouter, Groq, Together) y el modelo tiene que ver imagenes.<br>
-    Si dejas la clave vacia y la pagina esta publicada en Netlify, usa <code>/.netlify/functions/analizar</code> y la clave vive en el servidor, pero esa function corta a los 10 s en el plan gratuito.
+    Normalmente no hace falta tocar nada aca: publicada en Netlify, la pagina usa <code>/.netlify/functions/analizar</code> y la clave vive en el servidor.
+    Estos campos son para probar otro modelo o proveedor sin redesplegar; la clave que pongas queda en el <code>localStorage</code> de esta maquina y se manda solo al proveedor que indiques.
   </div>
 </div>
 
@@ -158,7 +157,7 @@ tr.f-error{background:rgba(255,61,87,.035)}tr.f-warn{background:rgba(255,171,0,.
     <div class="drop" id="dPlan">
       <div class="drop-e">📄</div>
       <div class="drop-t">Arrastra la planilla</div>
-      <div class="drop-s">Se leen todas las filas de cada hoja · JPG · PNG · PDF<br>Si esta de costado se gira sola; con ↻ podes forzarlo</div>
+      <div class="drop-s">Se leen todas las filas de cada hoja · JPG · PNG · PDF<br>Si esta de costado o es muy larga, se resuelve sola</div>
     </div>
     <div class="minis" id="mPlan"></div>
   </div>
@@ -379,10 +378,6 @@ function llamarModelo(dataUrl, tipo){
         // El servidor no tiene la clave, pero se puede trabajar igual pegandola en Ajustes.
         if(/falta la clave|api[ _-]?key/i.test(msg))
           msg += " — o pega tu API key en ⚙ Ajustes y la pagina llama al proveedor directo, sin tocar Netlify.";
-        // La function del plan gratuito corta a los 10 s. Una hoja densa con un
-        // modelo que razona se pasa, y por el camino directo ese limite no existe.
-        else if(/tardo demasiado|timeout/i.test(msg))
-          msg += ". La Netlify Function corta a los 10 s en el plan gratuito; pega tu API key en ⚙ Ajustes y la pagina llama al proveedor directo, sin ese limite.";
         throw new Error(msg);
       }
       return { regs:d.registros || null, crudo:d.crudo || "" };
@@ -453,6 +448,44 @@ function rotar(dataUrl){
   });
 }
 
+// Parte una pagina en dos mitades horizontales con un poco de solape, para que
+// la fila que cae justo en el corte aparezca entera en alguna de las dos.
+function partir(dataUrl){
+  return new Promise(function(res){
+    var img = new Image();
+    img.onload = function(){
+      var solape = Math.round(img.height * 0.08);
+      var medio = Math.round(img.height / 2);
+      var tramos = [[0, medio + solape], [Math.max(0, medio - solape), img.height]];
+      res(tramos.map(function(t){
+        var alto = t[1] - t[0];
+        var c = document.createElement("canvas");
+        c.width = img.width; c.height = alto;
+        var x = c.getContext("2d");
+        x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height);
+        x.drawImage(img, 0, t[0], img.width, alto, 0, 0, c.width, alto);
+        return c.toDataURL("image/jpeg", 0.85);
+      }));
+    };
+    img.onerror = function(){ res([dataUrl]); };
+    img.src = dataUrl;
+  });
+}
+
+// El solape hace que una misma fila pueda venir en las dos mitades.
+function sinDuplicados(regs){
+  var vistos = {}, out = [];
+  regs.forEach(function(r){
+    var ci = soloDig(r && r.cedula);
+    var clave = ci || [(r&&r.nombre)||"", (r&&r.apellido)||"", (r&&r.hora)||""].join("|").toLowerCase();
+    if(clave === "||" || vistos[clave]) return;
+    vistos[clave] = 1; out.push(r);
+  });
+  return out;
+}
+
+function esPorTiempo(msg){ return /tardo demasiado|timeout|504/i.test(msg || ""); }
+
 // Una pagina muy densa puede pasarse de tokens o de tiempo: se reintenta
 // una sola vez con la imagen al 60%.
 function reducir(dataUrl){
@@ -469,12 +502,7 @@ function reducir(dataUrl){
   });
 }
 
-// Lee una pagina probando las cuatro orientaciones. Una planilla escaneada de
-// costado no se lee, y en vez de pedirle al usuario que la gire se prueba sola:
-// la pagina que ya esta derecha cuesta una sola llamada, porque solo se gira
-// cuando la anterior no devolvio nada legible. El modelo es el detector de
-// orientacion; adivinarla por la forma de la imagen no es confiable.
-function leerPagina(dataUrl, tipo, avisarGiro){
+function leerPagina(dataUrl, tipo, avisar){
   function unIntento(url){
     return llamarModelo(url, tipo).catch(function(e){
       // Error de tamano o de tiempo: un reintento con la imagen mas chica.
@@ -482,16 +510,44 @@ function leerPagina(dataUrl, tipo, avisarGiro){
         .catch(function(){ throw e; });
     });
   }
-  function probar(url, giros){
+
+  // Si no vuelve nada legible puede ser que la hoja este de costado: se prueban
+  // las cuatro orientaciones. La que ya esta derecha cuesta una sola llamada.
+  function conGiros(url, giros){
     return unIntento(url).then(function(r){
       var utiles = Array.isArray(r.regs) ? r.regs.filter(conAlgoLegible) : [];
       // Si el modelo se nego, girar no cambia nada: se corta ahi.
       if(utiles.length || giros >= 3 || esRechazo(r.crudo)) { r.url = url; r.giros = giros; return r; }
-      if(avisarGiro) avisarGiro(giros + 1);
-      return rotar(url).then(function(girada){ return probar(girada, giros + 1); });
+      if(avisar) avisar("no se leyo nada, probando girada " + ((giros+1)*90) + "°");
+      return rotar(url).then(function(girada){ return conGiros(girada, giros + 1); });
     });
   }
-  return probar(dataUrl, 0);
+
+  // Si la hoja se corta por tiempo, se parte al medio y se lee cada mitad: dos
+  // llamadas cortas entran donde una larga no. Es lo que permite leer una planilla
+  // densa por la Netlify Function, que corta a los 10 s en el plan gratuito, sin
+  // pedirle nada al que la usa.
+  function conCortes(url, nivel){
+    return conGiros(url, 0).catch(function(e){
+      if(nivel >= 2 || !esPorTiempo(e && e.message)) throw e;
+      if(avisar) avisar("tardo demasiado, leyendola en " + Math.pow(2, nivel+1) + " partes");
+      return partir(url).then(function(mitades){
+        return mitades.reduce(function(cadena, mitad){
+          return cadena.then(function(acc){
+            return conCortes(mitad, nivel + 1).then(function(r){
+              return acc.concat(Array.isArray(r.regs) ? r.regs : []);
+            }, function(){ return acc; });
+          });
+        }, Promise.resolve([])).then(function(todos){
+          // Si ninguna mitad trajo nada, el problema no era el tamano.
+          if(!todos.length) throw e;
+          return { regs:sinDuplicados(todos), crudo:"", url:url, partes:mitades.length };
+        });
+      });
+    });
+  }
+
+  return conCortes(dataUrl, 0);
 }
 
 /* ───── reglas del cotejo ───── */
@@ -620,8 +676,8 @@ function analizar(){
   tareas.forEach(function(t){
     cadena = cadena.then(function(){
       $("estado").innerHTML = '<span class="sp"></span>Leyendo ' + t.etq + ' (' + (hechas+1) + '/' + total + ')...';
-      return leerPagina(t.url, t.tipo, function(n){
-        $("estado").innerHTML = '<span class="sp"></span>' + t.etq + ': no se leyo nada, probando girada ' + (n*90) + '°...';
+      return leerPagina(t.url, t.tipo, function(txt){
+        $("estado").innerHTML = '<span class="sp"></span>' + t.etq + ': ' + txt + '...';
       }).then(function(r){
         hechas++;
         // La orientacion que funciono queda guardada: la miniatura se corrige
