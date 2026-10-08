@@ -158,7 +158,7 @@ tr.f-error{background:rgba(255,61,87,.035)}tr.f-warn{background:rgba(255,171,0,.
     <div class="drop" id="dPlan">
       <div class="drop-e">📄</div>
       <div class="drop-t">Arrastra la planilla</div>
-      <div class="drop-s">Se leen todas las filas de cada hoja · JPG · PNG · PDF<br>Si queda de costado, girala con ↻ antes de cotejar</div>
+      <div class="drop-s">Se leen todas las filas de cada hoja · JPG · PNG · PDF<br>Si esta de costado se gira sola; con ↻ podes forzarlo</div>
     </div>
     <div class="minis" id="mPlan"></div>
   </div>
@@ -455,11 +455,28 @@ function reducir(dataUrl){
   });
 }
 
-function leerPagina(dataUrl, tipo){
-  return llamarModelo(dataUrl, tipo).catch(function(e){
-    return reducir(dataUrl).then(function(chica){ return llamarModelo(chica, tipo); })
-      .catch(function(){ throw e; });
-  });
+// Lee una pagina probando las cuatro orientaciones. Una planilla escaneada de
+// costado no se lee, y en vez de pedirle al usuario que la gire se prueba sola:
+// la pagina que ya esta derecha cuesta una sola llamada, porque solo se gira
+// cuando la anterior no devolvio nada legible. El modelo es el detector de
+// orientacion; adivinarla por la forma de la imagen no es confiable.
+function leerPagina(dataUrl, tipo, avisarGiro){
+  function unIntento(url){
+    return llamarModelo(url, tipo).catch(function(e){
+      // Error de tamano o de tiempo: un reintento con la imagen mas chica.
+      return reducir(url).then(function(chica){ return llamarModelo(chica, tipo); })
+        .catch(function(){ throw e; });
+    });
+  }
+  function probar(url, giros){
+    return unIntento(url).then(function(r){
+      var utiles = Array.isArray(r.regs) ? r.regs.filter(conAlgoLegible) : [];
+      if(utiles.length || giros >= 3) { r.url = url; r.giros = giros; return r; }
+      if(avisarGiro) avisarGiro(giros + 1);
+      return rotar(url).then(function(girada){ return probar(girada, giros + 1); });
+    });
+  }
+  return probar(dataUrl, 0);
 }
 
 /* ───── reglas del cotejo ───── */
@@ -475,6 +492,10 @@ function ciValida(ci){
 }
 function norm(s){ return (""+(s||"")).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z]/g,""); }
 function capIrregular(s){ return /[a-z][A-Z]/.test(s) && /[A-Z]{2,}/.test(s); }
+// Un documento sirve si trajo al menos la cedula, el nombre o el apellido.
+function conAlgoLegible(d){
+  return !!(soloDig(d && d.cedula) || (d && d.nombre || "").trim() || (d && d.apellido || "").trim());
+}
 function normFecha(v){
   v = (""+(v||"")).trim();
   if(/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
@@ -577,21 +598,33 @@ function analizar(){
   pintarEstado();
 
   var notas = [], total = S.doc.length + S.plan.length, hechas = 0;
-  var tareas = S.doc.map(function(u,i){ return { url:u, tipo:"documento", etq:"documento pag. " + (i+1) }; })
-    .concat(S.plan.map(function(u,i){ return { url:u, tipo:"planilla", etq:"planilla pag. " + (i+1) }; }));
+  var tareas = S.doc.map(function(u,i){ return { url:u, tipo:"documento", lote:"doc", idx:i, etq:"documento pag. " + (i+1) }; })
+    .concat(S.plan.map(function(u,i){ return { url:u, tipo:"planilla", lote:"plan", idx:i, etq:"planilla pag. " + (i+1) }; }));
 
   var cadena = Promise.resolve();
   tareas.forEach(function(t){
     cadena = cadena.then(function(){
       $("estado").innerHTML = '<span class="sp"></span>Leyendo ' + t.etq + ' (' + (hechas+1) + '/' + total + ')...';
-      return leerPagina(t.url, t.tipo).then(function(r){
+      return leerPagina(t.url, t.tipo, function(n){
+        $("estado").innerHTML = '<span class="sp"></span>' + t.etq + ': no se leyo nada, probando girada ' + (n*90) + '°...';
+      }).then(function(r){
         hechas++;
+        // La orientacion que funciono queda guardada: la miniatura se corrige
+        // sola y una segunda corrida no vuelve a probar las cuatro.
+        if(r.url && r.url !== t.url){ S[t.lote][t.idx] = r.url; pintarZonas(); }
         // Sin texto crudo el modelo no llego a contestar nada: el motivo tipico
         // es que gasto el presupuesto de tokens razonando antes de escribir.
         var VACIO = "el modelo respondio vacio — suele quedarse sin tokens razonando: proba una hoja con menos documentos";
         if(!Array.isArray(r.regs)) notas.push({ etq:t.etq, msg: r.crudo ? "no se pudo interpretar la respuesta — dijo: " + r.crudo : VACIO });
         else if(!r.regs.length) notas.push({ etq:t.etq, msg: r.crudo ? "el modelo no devolvio ningun registro — dijo: " + r.crudo : VACIO });
-        else if(t.tipo === "documento") S.docs = S.docs.concat(r.regs);
+        else if(t.tipo === "documento"){
+          // Un registro sin cedula, sin nombre y sin apellido no es un documento
+          // leido: es ruido. Se cuenta en los avisos en vez de ensuciar la tabla.
+          var utiles = r.regs.filter(conAlgoLegible);
+          if(utiles.length < r.regs.length)
+            notas.push({ etq:t.etq, msg:(r.regs.length - utiles.length) + " documento(s) salieron sin ningun dato legible y se descartaron" });
+          S.docs = S.docs.concat(utiles);
+        }
         else S.regs = S.regs.concat(r.regs);
       }).catch(function(e){
         hechas++; notas.push({ etq:t.etq, msg:"" + (e.message||e) });
