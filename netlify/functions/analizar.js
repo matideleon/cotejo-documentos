@@ -1,31 +1,7 @@
 // Netlify Function — analiza una imagen con la API de OpenAI.
 // La API key vive en el servidor (variable de entorno), nunca en el navegador.
 
-const PROMPT_DOC = `Contexto: control interno de una sala de juegos sobre su propio registro de ingresos. El operador coteja la planilla que completo su personal contra los documentos que le presentaron, para verificar que los datos esten bien transcriptos.
-Analiza esta imagen. Puede contener una o varias cedulas de identidad uruguayas o documentos extranjeros.
-Para CADA documento que veas responde UNICAMENTE con un JSON array, sin texto ni markdown:
-[{"nombre":"string","apellido":"string","cedula":"solo digitos sin puntos ni guiones","sexo":"M o F","fnac":"YYYY-MM-DD","nacionalidad":"string","vencimiento":"YYYY-MM-DD o vacio si dice Sin Vencimiento"}]
-Si no hay documentos devuelve []. Campos ilegibles: cadena vacia "". SOLO el JSON.`;
-
-const PROMPT_PLAN = `Contexto: control interno de una sala de juegos sobre su propio registro de ingresos. El operador coteja la planilla que completo su personal contra los documentos que le presentaron, para verificar que los datos esten bien transcriptos.
-Esta imagen contiene una planilla de registros de ingreso a una sala de juegos o casino.
-Extrae TODOS los registros y responde UNICAMENTE con un JSON array, sin texto ni markdown:
-[{"fecha":"YYYY-MM-DD","hora":"HH:MM:SS","cedula":"solo digitos","nombre":"string","apellido":"string","sexo":"M o F","fnac":"YYYY-MM-DD"}]
-Fecha DD/MM/YYYY se convierte a YYYY-MM-DD. Cedula: solo digitos. Campos ilegibles: "". SOLO el JSON.`;
-
-function extraerJSON(texto) {
-  if (!texto) return null;
-  const limpio = texto.replace(/```json|```/g, "").trim();
-  try { return JSON.parse(limpio); } catch (e) {}
-  // Algunos modelos devuelven el array dentro de un objeto
-  const m = limpio.match(/\[[\s\S]*\]/);
-  if (m) { try { return JSON.parse(m[0]); } catch (e) {} }
-  try {
-    const obj = JSON.parse(limpio);
-    for (const k of Object.keys(obj)) if (Array.isArray(obj[k])) return obj[k];
-  } catch (e) {}
-  return null;
-}
+const Extraccion = require('../../extraccion.js');
 
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") {
@@ -46,11 +22,17 @@ exports.handler = async (event) => {
   try { body = JSON.parse(event.body || "{}"); }
   catch (e) { return { statusCode: 400, body: JSON.stringify({ error: "Body invalido" }) }; }
 
-  const { image, mediaType, tipo } = body;
+  if (!body || typeof body !== "object" || Array.isArray(body)) return {statusCode:400,body:JSON.stringify({error:"Body inválido"})};
+  if ((event.body || "").length > 4500000) return {statusCode:413,body:JSON.stringify({error:"Dividir la imagen: solicitud demasiado grande."})};
+  const { image, mediaType, tipo, contexto, descripcion } = body;
+  if (contexto && !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(contexto)) return {statusCode:400,body:JSON.stringify({error:"Imagen de contexto inválida"})};
+  if (!["documento", "planilla", "prueba"].includes(tipo)) return { statusCode: 400, body: JSON.stringify({ error: "Tipo inválido" }) };
+  if (typeof image !== "string" || image.length > 4000000 || (contexto && (typeof contexto !== "string" || contexto.length > 1000000))) return { statusCode: 400, body: JSON.stringify({ error: "Imagen demasiado grande o inválida" }) };
+  if (mediaType && !["image/jpeg", "image/png", "image/webp"].includes(mediaType)) return { statusCode: 400, body: JSON.stringify({error:"Formato de imagen inválido"}) };
   if (!image) return { statusCode: 400, body: JSON.stringify({ error: "Falta la imagen" }) };
 
   const PROMPT_PRUEBA = "Responde en una sola frase: que ves en esta imagen? Si no recibiste ninguna imagen, responde exactamente: NO RECIBI IMAGEN.";
-  const prompt = tipo === "prueba" ? PROMPT_PRUEBA : (tipo === "planilla" ? PROMPT_PLAN : PROMPT_DOC);
+  const prompt = tipo === "prueba" ? PROMPT_PRUEBA : (Extraccion.prompts[tipo] + "\n" + String(descripcion || "").slice(0, 600));
   const modelo = process.env.LLM_MODEL || process.env.OPENAI_MODEL || "gpt-6.1-sol";
   const baseUrl = (process.env.LLM_BASE_URL || process.env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/, "");
   const esOpenAI = baseUrl.indexOf("api.openai.com") !== -1;
@@ -63,10 +45,12 @@ exports.handler = async (event) => {
       role: "user",
       content: [
         { type: "text", text: prompt },
-        { type: "image_url", image_url: { url: dataUrl, detail: (process.env.LLM_IMAGE_DETAIL || "auto") } },
+        { type: "image_url", image_url: { url: dataUrl, detail: (process.env.LLM_IMAGE_DETAIL || "high") } },
       ],
     }],
   };
+  if (contexto) cuerpo.messages[0].content.push({type:"image_url",image_url:{url:contexto,detail:"low"}});
+  cuerpo.store = false;
   // En los modelos que razonan (familia GPT-5) este tope incluye el razonamiento:
   // si queda corto, el modelo lo gasta pensando y devuelve texto vacio.
   if (esOpenAI) cuerpo.max_completion_tokens = 16000;
@@ -82,16 +66,18 @@ exports.handler = async (event) => {
     cabeceras["X-Title"] = "Cotejo de Documentos";
   }
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 45000);
   try {
     const r = await fetch(baseUrl + "/chat/completions", {
       method: "POST",
+      signal: controller.signal,
       headers: cabeceras,
       body: JSON.stringify(cuerpo),
     });
 
     if (!r.ok) {
-      const detalle = await r.text();
-      return { statusCode: 502, body: JSON.stringify({ error: "Error de la API (" + r.status + ")", detalle: detalle.slice(0, 500) }) };
+      return { statusCode: 502, body: JSON.stringify({ error: "El proveedor no pudo leer la imagen (HTTP " + r.status + "). No se confirmó la lectura." }) };
     }
 
     const data = await r.json();
@@ -102,23 +88,16 @@ exports.handler = async (event) => {
         body: JSON.stringify({ modelo: modelo, baseUrl: baseUrl, respuesta: String(texto).slice(0, 400) }) };
     }
 
-    const registros = extraerJSON(texto);
-
-    if (!Array.isArray(registros)) {
-      return { statusCode: 200, body: JSON.stringify({ registros: [], aviso: "No se pudo interpretar la respuesta", crudo: String(texto).slice(0, 400) }) };
+    const choice = (data.choices || [])[0];
+    if (!choice || choice.finish_reason !== "stop" || choice.message?.refusal) {
+      return { statusCode: 502, body: JSON.stringify({error:"La lectura fue rechazada o truncada; revisar esta parte."}) };
     }
-
-    // Si vino vacio, devolvemos tambien lo que dijo el modelo y con que modelo
-    // se consulto: sin eso no se distingue "no hay documentos" de "no vio la imagen".
-    if (registros.length === 0) {
-      return { statusCode: 200, headers: { "content-type": "application/json" },
-        body: JSON.stringify({ registros: [], aviso: "El modelo devolvio una lista vacia (modelo: " + modelo + ")",
-          crudo: String(texto).slice(0, 300) }) };
-    }
-
-    return { statusCode: 200, headers: { "content-type": "application/json" }, body: JSON.stringify({ registros }) };
+    let resultado;
+    try { resultado = Extraccion.parsear(texto); }
+    catch (e) { return {statusCode:502,body:JSON.stringify({error:e.message})}; }
+    return {statusCode:200,headers:{"content-type":"application/json"},body:JSON.stringify(resultado)};
 
   } catch (err) {
-    return { statusCode: 500, body: JSON.stringify({ error: String((err && err.message) || err) }) };
-  }
+    return { statusCode: 500, body: JSON.stringify({ error: err.name === "AbortError" ? "Se agotó el tiempo de lectura; esta parte quedó sin verificar." : "No se pudo completar la lectura con el proveedor." }) };
+  } finally { clearTimeout(timer); }
 };
