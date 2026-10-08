@@ -519,7 +519,14 @@ function cotejar(docs, plan){
   // Documento escaneado que no aparece en la planilla: siempre error.
   docs.forEach(function(d){
     var ci = soloDig(d.cedula);
-    if(!ci) return;
+    // Sin cedula no se puede cruzar, pero el documento se leyo: se muestra igual
+    // para completarlo a mano, en vez de desaparecer sin dejar rastro.
+    if(!ci){
+      out.push({ _p:null, _d:d, fecha:"", hora:"", cedula:"", nombre:d.nombre||"",
+        apellido:d.apellido||"", sexo:(d.sexo||"").toUpperCase(), fnac:d.fnac||"",
+        estado:"error", obs:"No se pudo leer la cedula de este documento — escribila a mano para cotejarlo" });
+      return;
+    }
     for(var i = 0; i < plan.length; i++) if(soloDig(plan[i].cedula) === ci) return;
     var nat = (d.nacionalidad||"").toUpperCase();
     out.push({ _p:null, _d:d, fecha:"", hora:"", cedula:ci, nombre:d.nombre||"", apellido:d.apellido||"",
