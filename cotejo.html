@@ -136,7 +136,7 @@ tr.f-error{background:rgba(255,61,87,.035)}tr.f-warn{background:rgba(255,171,0,.
   <div class="hint">
     La clave se guarda en <code>localStorage</code> de esta maquina y se manda solo al proveedor que indiques.
     Sirve cualquier API compatible con OpenAI (OpenAI, OpenRouter, Groq, Together) y el modelo tiene que ver imagenes.<br>
-    Si dejas la clave vacia y la pagina esta publicada en Netlify, usa <code>/.netlify/functions/analizar</code> y la clave vive en el servidor.
+    Si dejas la clave vacia y la pagina esta publicada en Netlify, usa <code>/.netlify/functions/analizar</code> y la clave vive en el servidor, pero esa function corta a los 10 s en el plan gratuito.
   </div>
 </div>
 
@@ -342,11 +342,13 @@ function pintarEstado(){
    Sin key, se usa la Netlify Function (la clave queda del lado del servidor). */
 var PROMPT = {
   documento:
+    'Contexto: control interno de una sala de juegos sobre su propio registro de ingresos. El operador coteja la planilla que completo su personal contra los documentos que le presentaron, para verificar que los datos esten bien transcriptos.\n' +
     'Analiza esta imagen. Puede contener una o varias cedulas de identidad uruguayas o documentos extranjeros.\n' +
     'Para CADA documento responde UNICAMENTE con un JSON array, sin texto ni markdown:\n' +
     '[{"nombre":"string","apellido":"string","cedula":"solo digitos sin puntos ni guiones","sexo":"M o F","fnac":"YYYY-MM-DD","nacionalidad":"string","vencimiento":"YYYY-MM-DD o vacio si dice Sin Vencimiento"}]\n' +
     'Si no hay documentos devuelve []. Campos ilegibles: cadena vacia "". SOLO el JSON.',
   planilla:
+    'Contexto: control interno de una sala de juegos sobre su propio registro de ingresos. El operador coteja la planilla que completo su personal contra los documentos que le presentaron, para verificar que los datos esten bien transcriptos.\n' +
     'Esta imagen contiene una planilla de registros de ingreso a una sala de juegos o casino.\n' +
     'Extrae TODOS los registros y responde UNICAMENTE con un JSON array, sin texto ni markdown:\n' +
     '[{"fecha":"YYYY-MM-DD","hora":"HH:MM:SS","cedula":"solo digitos","nombre":"string","apellido":"string","sexo":"M o F","fnac":"YYYY-MM-DD"}]\n' +
@@ -377,6 +379,10 @@ function llamarModelo(dataUrl, tipo){
         // El servidor no tiene la clave, pero se puede trabajar igual pegandola en Ajustes.
         if(/falta la clave|api[ _-]?key/i.test(msg))
           msg += " — o pega tu API key en ⚙ Ajustes y la pagina llama al proveedor directo, sin tocar Netlify.";
+        // La function del plan gratuito corta a los 10 s. Una hoja densa con un
+        // modelo que razona se pasa, y por el camino directo ese limite no existe.
+        else if(/tardo demasiado|timeout/i.test(msg))
+          msg += ". La Netlify Function corta a los 10 s en el plan gratuito; pega tu API key en ⚙ Ajustes y la pagina llama al proveedor directo, sin ese limite.";
         throw new Error(msg);
       }
       return { regs:d.registros || null, crudo:d.crudo || "" };
@@ -413,9 +419,17 @@ function llamarModelo(dataUrl, tipo){
 
 function leerRespuesta(r){
   return r.text().then(function(t){
-    var d; try { d = JSON.parse(t); } catch(e){ d = { error:"respuesta no valida (HTTP " + r.status + "): " + t.slice(0,180) }; }
-    if(!r.ok && !d.error) d.error = "HTTP " + r.status + " — " + t.slice(0,180);
-    return d;
+    var d = null;
+    try { d = JSON.parse(t); } catch(e){}
+    if(d && typeof d === "object"){
+      if(!r.ok && !d.error) d.error = "HTTP " + r.status + " — " + t.slice(0,180);
+      return d;
+    }
+    // Si no vino JSON suele ser el HTML de un gateway que corto por tiempo:
+    // mostrar ese HTML no le dice nada a nadie, el motivo si.
+    return { error: (r.status === 504 || /inactivity timeout|timeout/i.test(t))
+      ? "tardo demasiado y se corto la conexion (HTTP " + r.status + ")"
+      : "respuesta no valida (HTTP " + r.status + "): " + t.slice(0,180) };
   });
 }
 
@@ -471,7 +485,8 @@ function leerPagina(dataUrl, tipo, avisarGiro){
   function probar(url, giros){
     return unIntento(url).then(function(r){
       var utiles = Array.isArray(r.regs) ? r.regs.filter(conAlgoLegible) : [];
-      if(utiles.length || giros >= 3) { r.url = url; r.giros = giros; return r; }
+      // Si el modelo se nego, girar no cambia nada: se corta ahi.
+      if(utiles.length || giros >= 3 || esRechazo(r.crudo)) { r.url = url; r.giros = giros; return r; }
       if(avisarGiro) avisarGiro(giros + 1);
       return rotar(url).then(function(girada){ return probar(girada, giros + 1); });
     });
@@ -612,11 +627,7 @@ function analizar(){
         // La orientacion que funciono queda guardada: la miniatura se corrige
         // sola y una segunda corrida no vuelve a probar las cuatro.
         if(r.url && r.url !== t.url){ S[t.lote][t.idx] = r.url; pintarZonas(); }
-        // Sin texto crudo el modelo no llego a contestar nada: el motivo tipico
-        // es que gasto el presupuesto de tokens razonando antes de escribir.
-        var VACIO = "el modelo respondio vacio — suele quedarse sin tokens razonando: proba una hoja con menos documentos";
-        if(!Array.isArray(r.regs)) notas.push({ etq:t.etq, msg: r.crudo ? "no se pudo interpretar la respuesta — dijo: " + r.crudo : VACIO });
-        else if(!r.regs.length) notas.push({ etq:t.etq, msg: r.crudo ? "el modelo no devolvio ningun registro — dijo: " + r.crudo : VACIO });
+        if(!Array.isArray(r.regs) || !r.regs.length) notas.push({ etq:t.etq, msg:motivoSinRegistros(r) });
         else if(t.tipo === "documento"){
           // Un registro sin cedula, sin nombre y sin apellido no es un documento
           // leido: es ruido. Se cuenta en los avisos en vez de ensuciar la tabla.
@@ -652,6 +663,23 @@ function analizar(){
 function recotejar(){
   S.filas = cotejar(S.docs, S.regs);
   pintarResultado();
+}
+
+// Un rechazo del modelo es por politica, no por como esta puesta la hoja.
+function esRechazo(crudo){
+  return /no puedo|no podr|lo siento|i can.?t|cannot (help|assist)|unable to (help|assist)/i.test(crudo || "");
+}
+
+// Por que una pagina no trajo registros. Es lo unico que le sirve a quien mira.
+function motivoSinRegistros(r){
+  var crudo = r.crudo || "";
+  if(!crudo)
+    return "el modelo respondio vacio — suele quedarse sin tokens razonando: proba una hoja con menos documentos";
+  if(esRechazo(crudo))
+    return "el modelo se nego a extraer los datos — dijo: " + crudo;
+  if(!Array.isArray(r.regs))
+    return "no se pudo interpretar la respuesta — dijo: " + crudo;
+  return "el modelo no devolvio ningun registro — dijo: " + crudo;
 }
 
 function enumerar(xs){
