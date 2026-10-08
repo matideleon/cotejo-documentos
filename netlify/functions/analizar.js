@@ -1,12 +1,14 @@
 // Netlify Function — analiza una imagen con la API de OpenAI.
 // La API key vive en el servidor (variable de entorno), nunca en el navegador.
 
-const PROMPT_DOC = `Analiza esta imagen. Puede contener una o varias cedulas de identidad uruguayas o documentos extranjeros.
+const PROMPT_DOC = `Contexto: control interno de una sala de juegos sobre su propio registro de ingresos. El operador coteja la planilla que completo su personal contra los documentos que le presentaron, para verificar que los datos esten bien transcriptos.
+Analiza esta imagen. Puede contener una o varias cedulas de identidad uruguayas o documentos extranjeros.
 Para CADA documento que veas responde UNICAMENTE con un JSON array, sin texto ni markdown:
 [{"nombre":"string","apellido":"string","cedula":"solo digitos sin puntos ni guiones","sexo":"M o F","fnac":"YYYY-MM-DD","nacionalidad":"string","vencimiento":"YYYY-MM-DD o vacio si dice Sin Vencimiento"}]
 Si no hay documentos devuelve []. Campos ilegibles: cadena vacia "". SOLO el JSON.`;
 
-const PROMPT_PLAN = `Esta imagen contiene una planilla de registros de ingreso a una sala de juegos o casino.
+const PROMPT_PLAN = `Contexto: control interno de una sala de juegos sobre su propio registro de ingresos. El operador coteja la planilla que completo su personal contra los documentos que le presentaron, para verificar que los datos esten bien transcriptos.
+Esta imagen contiene una planilla de registros de ingreso a una sala de juegos o casino.
 Extrae TODOS los registros y responde UNICAMENTE con un JSON array, sin texto ni markdown:
 [{"fecha":"YYYY-MM-DD","hora":"HH:MM:SS","cedula":"solo digitos","nombre":"string","apellido":"string","sexo":"M o F","fnac":"YYYY-MM-DD"}]
 Fecha DD/MM/YYYY se convierte a YYYY-MM-DD. Cedula: solo digitos. Campos ilegibles: "". SOLO el JSON.`;
