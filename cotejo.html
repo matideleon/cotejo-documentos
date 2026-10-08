@@ -448,22 +448,29 @@ function rotar(dataUrl){
   });
 }
 
-// Parte una pagina en dos mitades horizontales con un poco de solape, para que
-// la fila que cae justo en el corte aparezca entera en alguna de las dos.
+// Parte una pagina en dos mitades horizontales. Dos cuidados que no son opcionales
+// en una planilla: un solape, para que la fila que cae en el corte aparezca entera
+// en alguna de las dos; y la franja de encabezados pegada arriba de la mitad de
+// abajo, porque sin ella el modelo no sabe que columna es cual y asigna los datos
+// a la columna equivocada.
 function partir(dataUrl){
   return new Promise(function(res){
     var img = new Image();
     img.onload = function(){
+      var cabeza = Math.round(img.height * 0.12);
       var solape = Math.round(img.height * 0.08);
       var medio = Math.round(img.height / 2);
-      var tramos = [[0, medio + solape], [Math.max(0, medio - solape), img.height]];
-      res(tramos.map(function(t){
+      var tramos = [[0, medio + solape], [Math.max(cabeza, medio - solape), img.height]];
+      res(tramos.map(function(t, i){
         var alto = t[1] - t[0];
+        var conCabeza = i > 0;   // la de arriba ya trae sus encabezados
         var c = document.createElement("canvas");
-        c.width = img.width; c.height = alto;
+        c.width = img.width;
+        c.height = alto + (conCabeza ? cabeza : 0);
         var x = c.getContext("2d");
         x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height);
-        x.drawImage(img, 0, t[0], img.width, alto, 0, 0, c.width, alto);
+        if(conCabeza) x.drawImage(img, 0, 0, img.width, cabeza, 0, 0, c.width, cabeza);
+        x.drawImage(img, 0, t[0], img.width, alto, 0, conCabeza ? cabeza : 0, c.width, alto);
         return c.toDataURL("image/jpeg", 0.85);
       }));
     };
@@ -472,12 +479,17 @@ function partir(dataUrl){
   });
 }
 
-// El solape hace que una misma fila pueda venir en las dos mitades.
+// El solape hace que una misma fila pueda venir en las dos mitades. La clave
+// incluye la hora a proposito: la misma persona puede entrar dos veces en la
+// noche, y esas son dos filas distintas del registro, no un duplicado. Solo se
+// descarta lo que repite cedula Y hora, que es la fila que cayo en el solape.
 function sinDuplicados(regs){
   var vistos = {}, out = [];
   regs.forEach(function(r){
     var ci = soloDig(r && r.cedula);
-    var clave = ci || [(r&&r.nombre)||"", (r&&r.apellido)||"", (r&&r.hora)||""].join("|").toLowerCase();
+    var hora = ((r && r.hora) || "").trim();
+    var clave = ci ? ci + "@" + hora
+                   : [(r&&r.nombre)||"", (r&&r.apellido)||"", hora].join("|").toLowerCase();
     if(clave === "||" || vistos[clave]) return;
     vistos[clave] = 1; out.push(r);
   });
