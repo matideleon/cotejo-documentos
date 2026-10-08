@@ -187,10 +187,13 @@ tr.f-error{background:rgba(255,61,87,.035)}tr.f-warn{background:rgba(255,171,0,.
 <div class="toast" id="toast"></div>
 
 <script src="vendor/pdf.min.js"></script>
+<script src="extraccion.js"></script>
+<script src="cotejo-core.js"></script>
+<script src="lectura-imagenes.js"></script>
 <script>
 /* ═══════════════════════════════════════════════════════════════════
    Cotejo de documentos — version simple.
-   Un solo archivo: lee las cedulas y la planilla, extrae los datos con
+   Lee las cedulas y la planilla, extrae los datos con
    un modelo con vision y los cruza. Sin build, sin dependencias de red
    (PDF.js viaja en vendor/).
    ═══════════════════════════════════════════════════════════════════ */
@@ -225,8 +228,8 @@ function esc(s){ return (""+(s==null?"":s)).replace(/&/g,"&amp;").replace(/</g,"
 function soloDig(s){ return (""+(s||"")).replace(/\D/g,""); }
 function cap(s){ return s ? s.charAt(0).toUpperCase()+s.slice(1).toLowerCase() : ""; }
 function fmtCI(ci){
-  var n = soloDig(ci);
-  if(n.length < 7) return ci || "—";
+  var n = CotejoCore.numero(ci);
+  if(!/^\d+$/.test(n) || n.length < 7) return ci || "—";
   return n.slice(0,-1).replace(/\B(?=(\d{3})+(?!\d))/g,".") + "-" + n.slice(-1);
 }
 function toast(m, t){
@@ -257,7 +260,7 @@ function comprimir(file, maxDim){
       }
       var c = document.createElement("canvas"); c.width = w; c.height = h;
       var x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0,0,w,h); x.drawImage(img,0,0,w,h);
-      res(c.toDataURL("image/jpeg", 0.82));
+      res(c.toDataURL("image/jpeg", 0.94));
     };
     img.onerror = function(){ clearTimeout(t); fallback(); };
     img.src = url;
@@ -268,7 +271,7 @@ function comprimir(file, maxDim){
 function pdfAImagenes(file, maxDim){
   if(!window.pdfjsLib) return Promise.reject(new Error("falta vendor/pdf.min.js para leer PDF"));
   return file.arrayBuffer()
-    .then(function(buf){ return pdfjsLib.getDocument({ data:new Uint8Array(buf) }).promise; })
+    .then(function(buf){ return pdfjsLib.getDocument({ data:new Uint8Array(buf), isEvalSupported:false }).promise; })
     .then(function(pdf){
       var pags = [], cadena = Promise.resolve();
       for(var n = 1; n <= pdf.numPages; n++){
@@ -277,13 +280,13 @@ function pdfAImagenes(file, maxDim){
             var base = page.getViewport({ scale:1 });
             var k = maxDim / Math.max(base.width, base.height);
             if(!isFinite(k) || k <= 0) k = 2;
-            var vp = page.getViewport({ scale:Math.min(Math.max(k,1),4) });
+            var vp = page.getViewport({ scale:Math.min(Math.max(k,1),6) });
             var c = document.createElement("canvas");
             c.width = Math.round(vp.width); c.height = Math.round(vp.height);
             var ctx = c.getContext("2d");
             ctx.fillStyle = "#fff"; ctx.fillRect(0,0,c.width,c.height);
             return page.render({ canvasContext:ctx, viewport:vp }).promise.then(function(){
-              pags.push(c.toDataURL("image/jpeg", 0.85));
+              pags.push(c.toDataURL("image/jpeg", 0.94));
             });
           });
         };}(n));
@@ -300,7 +303,7 @@ function cargar(files, kind){
 
   arr.forEach(function(f){
     S.cargando++; pintarEstado();
-    var p = esPDF(f) ? pdfAImagenes(f, 3000) : comprimir(f, 2200).then(function(u){ return u ? [u] : []; });
+    var p = esPDF(f) ? pdfAImagenes(f, 3600) : comprimir(f, 3600).then(function(u){ return u ? [u] : []; });
     p.then(function(pags){
       if(!pags.length) toast("No se pudo leer " + f.name, "err");
       S[kind] = S[kind].concat(pags);
@@ -339,39 +342,15 @@ function pintarEstado(){
 /* ───── lectura con el modelo ─────
    Con API key configurada se llama al proveedor directo desde el navegador.
    Sin key, se usa la Netlify Function (la clave queda del lado del servidor). */
-var PROMPT = {
-  documento:
-    'Contexto: control interno de una sala de juegos sobre su propio registro de ingresos. El operador coteja la planilla que completo su personal contra los documentos que le presentaron, para verificar que los datos esten bien transcriptos.\n' +
-    'Analiza esta imagen. Puede contener una o varias cedulas de identidad uruguayas o documentos extranjeros.\n' +
-    'Para CADA documento responde UNICAMENTE con un JSON array, sin texto ni markdown:\n' +
-    '[{"nombre":"string","apellido":"string","cedula":"solo digitos sin puntos ni guiones","sexo":"M o F","fnac":"YYYY-MM-DD","nacionalidad":"string","vencimiento":"YYYY-MM-DD o vacio si dice Sin Vencimiento"}]\n' +
-    'Si no hay documentos devuelve []. Campos ilegibles: cadena vacia "". SOLO el JSON.',
-  planilla:
-    'Contexto: control interno de una sala de juegos sobre su propio registro de ingresos. El operador coteja la planilla que completo su personal contra los documentos que le presentaron, para verificar que los datos esten bien transcriptos.\n' +
-    'Esta imagen contiene una planilla de registros de ingreso a una sala de juegos o casino.\n' +
-    'Extrae TODOS los registros y responde UNICAMENTE con un JSON array, sin texto ni markdown:\n' +
-    '[{"fecha":"YYYY-MM-DD","hora":"HH:MM:SS","cedula":"solo digitos","nombre":"string","apellido":"string","sexo":"M o F","fnac":"YYYY-MM-DD"}]\n' +
-    'Fecha DD/MM/YYYY se convierte a YYYY-MM-DD. Cedula: solo digitos. Campos ilegibles: "". SOLO el JSON.'
-};
-
-function extraerJSON(txt){
-  var limpio = (txt||"").replace(/```json|```/g, "").trim();
-  try { var v = JSON.parse(limpio); if(Array.isArray(v)) return v;
-    for(var k in v) if(Array.isArray(v[k])) return v[k];
-  } catch(e){}
-  var m = limpio.match(/\[[\s\S]*\]/);
-  if(m){ try { return JSON.parse(m[0]); } catch(e){} }
-  return null;
-}
-
-function llamarModelo(dataUrl, tipo){
+function llamarModelo(dataUrl, tipo, parte){
+  parte=parte||{};
   var b64 = dataUrl.split(",")[1];
   var mt = (dataUrl.split(";")[0]||"").split(":")[1] || "image/jpeg";
 
   if(!CFG.key){
     return fetch("/.netlify/functions/analizar", {
       method:"POST", headers:{ "content-type":"application/json" },
-      body: JSON.stringify({ image:b64, mediaType:mt, tipo:tipo })
+      body: JSON.stringify({ image:b64, mediaType:mt, tipo:tipo, contexto:parte.contexto, descripcion:parte.descripcion })
     }).then(leerRespuesta).then(function(d){
       if(d.error){
         var msg = d.error + (d.detalle ? " — " + d.detalle : "");
@@ -380,7 +359,7 @@ function llamarModelo(dataUrl, tipo){
           msg += " — o pega tu API key en ⚙ Ajustes y la pagina llama al proveedor directo, sin tocar Netlify.";
         throw new Error(msg);
       }
-      return { regs:d.registros || null, crudo:d.crudo || "" };
+      return Extraccion.validar(d);
     });
   }
 
@@ -389,10 +368,12 @@ function llamarModelo(dataUrl, tipo){
   var cuerpo = {
     model: modelo,
     messages: [{ role:"user", content:[
-      { type:"text", text:PROMPT[tipo] },
-      { type:"image_url", image_url:{ url:dataUrl } }
+      { type:"text", text:Extraccion.prompts[tipo]+"\n"+(parte.descripcion||"") },
+      { type:"image_url", image_url:{ url:dataUrl, detail:"high" } }
     ]}]
   };
+  if(parte.contexto) cuerpo.messages[0].content.push({type:"image_url",image_url:{url:parte.contexto,detail:"low"}});
+  cuerpo.store=false;
   // OpenAI usa max_completion_tokens; el resto de los proveedores, max_tokens.
   // En los modelos que razonan (familia GPT-5) ese tope incluye el razonamiento:
   // si queda corto, el modelo lo gasta pensando y devuelve texto vacio.
@@ -408,7 +389,9 @@ function llamarModelo(dataUrl, tipo){
   }).then(function(d){
     if(d.error) throw new Error((d.error.message || d.error) + "");
     var txt = (((d.choices||[])[0]||{}).message||{}).content || "";
-    return { regs:extraerJSON(txt), crudo:String(txt).slice(0,220) };
+    var choice=(d.choices||[])[0];
+    if(!choice || choice.finish_reason!=="stop" || choice.message.refusal) throw new Error("Respuesta truncada o rechazada; revisar esta parte.");
+    return Extraccion.parsear(txt);
   });
 }
 
@@ -441,242 +424,31 @@ function rotar(dataUrl){
       x.translate(c.width/2, c.height/2);
       x.rotate(Math.PI/2);
       x.drawImage(img, -img.width/2, -img.height/2);
-      res(c.toDataURL("image/jpeg", 0.85));
+      res(c.toDataURL("image/jpeg", 0.94));
     };
     img.onerror = function(){ res(dataUrl); };
     img.src = dataUrl;
   });
 }
 
-// Parte una pagina en dos mitades horizontales. Dos cuidados que no son opcionales
-// en una planilla: un solape, para que la fila que cae en el corte aparezca entera
-// en alguna de las dos; y la franja de encabezados pegada arriba de la mitad de
-// abajo, porque sin ella el modelo no sabe que columna es cual y asigna los datos
-// a la columna equivocada.
-function partir(dataUrl){
-  return new Promise(function(res){
-    var img = new Image();
-    img.onload = function(){
-      var cabeza = Math.round(img.height * 0.12);
-      var solape = Math.round(img.height * 0.08);
-      var medio = Math.round(img.height / 2);
-      var tramos = [[0, medio + solape], [Math.max(cabeza, medio - solape), img.height]];
-      res(tramos.map(function(t, i){
-        var alto = t[1] - t[0];
-        var conCabeza = i > 0;   // la de arriba ya trae sus encabezados
-        var c = document.createElement("canvas");
-        c.width = img.width;
-        c.height = alto + (conCabeza ? cabeza : 0);
-        var x = c.getContext("2d");
-        x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height);
-        if(conCabeza) x.drawImage(img, 0, 0, img.width, cabeza, 0, 0, c.width, cabeza);
-        x.drawImage(img, 0, t[0], img.width, alto, 0, conCabeza ? cabeza : 0, c.width, alto);
-        return c.toDataURL("image/jpeg", 0.85);
-      }));
-    };
-    img.onerror = function(){ res([dataUrl]); };
-    img.src = dataUrl;
-  });
-}
-
-// El solape hace que una misma fila pueda venir en las dos mitades. La clave
-// incluye la hora a proposito: la misma persona puede entrar dos veces en la
-// noche, y esas son dos filas distintas del registro, no un duplicado. Solo se
-// descarta lo que repite cedula Y hora, que es la fila que cayo en el solape.
-function sinDuplicados(regs){
-  var vistos = {}, out = [];
-  regs.forEach(function(r){
-    var ci = soloDig(r && r.cedula);
-    var hora = ((r && r.hora) || "").trim();
-    var clave = ci ? ci + "@" + hora
-                   : [(r&&r.nombre)||"", (r&&r.apellido)||"", hora].join("|").toLowerCase();
-    if(clave === "||" || vistos[clave]) return;
-    vistos[clave] = 1; out.push(r);
-  });
-  return out;
-}
-
-function esPorTiempo(msg){ return /tardo demasiado|timeout|504/i.test(msg || ""); }
-
-// Una pagina muy densa puede pasarse de tokens o de tiempo: se reintenta
-// una sola vez con la imagen al 60%.
-function reducir(dataUrl){
-  return new Promise(function(res){
-    var img = new Image();
-    img.onload = function(){
-      var w = Math.max(500, Math.round(img.width*0.6)), h = Math.max(500, Math.round(img.height*0.6));
-      var c = document.createElement("canvas"); c.width = w; c.height = h;
-      var x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0,0,w,h); x.drawImage(img,0,0,w,h);
-      res(c.toDataURL("image/jpeg", 0.8));
-    };
-    img.onerror = function(){ res(dataUrl); };
-    img.src = dataUrl;
-  });
-}
-
-function leerPagina(dataUrl, tipo, avisar){
-  function unIntento(url){
-    return llamarModelo(url, tipo).catch(function(e){
-      // Error de tamano o de tiempo: un reintento con la imagen mas chica.
-      return reducir(url).then(function(chica){ return llamarModelo(chica, tipo); })
-        .catch(function(){ throw e; });
-    });
-  }
-
-  // Si no vuelve nada legible puede ser que la hoja este de costado: se prueban
-  // las cuatro orientaciones. La que ya esta derecha cuesta una sola llamada.
-  function conGiros(url, giros){
-    return unIntento(url).then(function(r){
-      var utiles = Array.isArray(r.regs) ? r.regs.filter(conAlgoLegible) : [];
-      // Si el modelo se nego, girar no cambia nada: se corta ahi.
-      if(utiles.length || giros >= 3 || esRechazo(r.crudo)) { r.url = url; r.giros = giros; return r; }
-      if(avisar) avisar("no se leyo nada, probando girada " + ((giros+1)*90) + "°");
-      return rotar(url).then(function(girada){ return conGiros(girada, giros + 1); });
-    });
-  }
-
-  // Si la hoja se corta por tiempo, se parte al medio y se lee cada mitad: dos
-  // llamadas cortas entran donde una larga no. Es lo que permite leer una planilla
-  // densa por la Netlify Function, que corta a los 10 s en el plan gratuito, sin
-  // pedirle nada al que la usa.
-  function conCortes(url, nivel){
-    return conGiros(url, 0).catch(function(e){
-      if(nivel >= 2 || !esPorTiempo(e && e.message)) throw e;
-      if(avisar) avisar("tardo demasiado, leyendola en " + Math.pow(2, nivel+1) + " partes");
-      return partir(url).then(function(mitades){
-        return mitades.reduce(function(cadena, mitad){
-          return cadena.then(function(acc){
-            return conCortes(mitad, nivel + 1).then(function(r){
-              return acc.concat(Array.isArray(r.regs) ? r.regs : []);
-            }, function(){ return acc; });
-          });
-        }, Promise.resolve([])).then(function(todos){
-          // Si ninguna mitad trajo nada, el problema no era el tamano.
-          if(!todos.length) throw e;
-          return { regs:sinDuplicados(todos), crudo:"", url:url, partes:mitades.length };
-        });
-      });
-    });
-  }
-
-  return conCortes(dataUrl, 0);
+function leerPagina(dataUrl,tipo,avisar){
+  return LecturaImagenes.leer(dataUrl,tipo,llamarModelo,avisar);
 }
 
 /* ───── reglas del cotejo ───── */
 // Digito verificador de la cedula uruguaya. Atrapa errores de lectura y
 // tambien numeros inventados por el modelo.
-function ciValida(ci){
-  var n = soloDig(ci);
-  if(n.length < 7 || n.length > 8) return false;
-  while(n.length < 8) n = "0" + n;
-  var coef = [2,9,8,7,6,3,4], suma = 0;
-  for(var i = 0; i < 7; i++) suma += parseInt(n.charAt(i),10) * coef[i];
-  return ((10 - (suma % 10)) % 10) === parseInt(n.charAt(7),10);
-}
-function norm(s){ return (""+(s||"")).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z]/g,""); }
-function capIrregular(s){ return /[a-z][A-Z]/.test(s) && /[A-Z]{2,}/.test(s); }
-// Un documento sirve si trajo al menos la cedula, el nombre o el apellido.
-function conAlgoLegible(d){
-  return !!(soloDig(d && d.cedula) || (d && d.nombre || "").trim() || (d && d.apellido || "").trim());
-}
-function normFecha(v){
-  v = (""+(v||"")).trim();
-  if(/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
-  var b = v.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-  return b ? b[3]+"-"+("0"+b[2]).slice(-2)+"-"+("0"+b[1]).slice(-2) : "";
-}
-// Distancia de edicion: separa un error de tipeo de un apellido realmente distinto.
-function lev(a,b){
-  if(a === b) return 0;
-  var m = a.length, n = b.length;
-  if(!m) return n; if(!n) return m;
-  var fila = [], i, j;
-  for(j = 0; j <= n; j++) fila[j] = j;
-  for(i = 1; i <= m; i++){
-    var prev = fila[0]; fila[0] = i;
-    for(j = 1; j <= n; j++){
-      var tmp = fila[j];
-      fila[j] = Math.min(fila[j]+1, fila[j-1]+1, prev + (a.charAt(i-1) === b.charAt(j-1) ? 0 : 1));
-      prev = tmp;
-    }
-  }
-  return fila[n];
-}
-// La planilla trae un apellido y la cedula suele traer dos.
-// Devuelve "ok" | "tipeo" | "distinto".
-function compararApellido(apPlan, apDoc){
-  var P = norm(apPlan), D = norm(apDoc);
-  if(!P || !D) return "ok";
-  if(D.indexOf(P) === 0 || P.indexOf(D) === 0) return "ok";
-  var umbral = P.length <= 4 ? 1 : 2;
-  return lev(P, D.slice(0, P.length)) <= umbral ? "tipeo" : "distinto";
-}
+function ciValida(ci){ return CotejoCore.ciValida(ci); }
 
 function cotejar(docs, plan){
-  var hoy = new Date().toISOString().slice(0,10);
-  var out = [];
-
-  plan.forEach(function(p){
-    var ci = soloDig(p.cedula), doc = null;
-    for(var i = 0; i < docs.length && ci; i++){
-      if(soloDig(docs[i].cedula) === ci){ doc = docs[i]; break; }
-    }
-    var fila = { _p:p, _d:doc, fecha:p.fecha||"", hora:p.hora||"", cedula:ci,
-      nombre:p.nombre||"", apellido:p.apellido||"", sexo:(p.sexo||"").toUpperCase(), fnac:p.fnac||"" };
-
-    if(!doc){ fila.estado = "nd"; fila.obs = "Figura en la planilla pero no se escaneo el documento"; out.push(fila); return; }
-
-    // Una fila puede tener mas de un problema: se juntan todos y manda el mas grave.
-    var h = [];
-    var sD = (doc.sexo||"").toUpperCase(), sP = fila.sexo;
-    var nat = (doc.nacionalidad||"").toUpperCase();
-    var venc = normFecha(doc.vencimiento);
-    var cmp = compararApellido(p.apellido, doc.apellido);
-    var apDoc = (doc.apellido||"").toUpperCase();
-
-    if(ci && !ciValida(ci)) h.push(["error","CEDULA INVALIDA — el digito verificador no cierra"]);
-    if(venc && venc < hoy)  h.push(["error","CEDULA VENCIDA el " + venc + " — no vigente al ingreso"]);
-    if(sD && sP && sD !== sP) h.push(["error","Sexo en planilla: " + sP + " — en documento: " + sD + ". Corregir a " + sD]);
-    if(cmp === "distinto")  h.push(["error","APELLIDO INCORRECTO — la cedula dice " + apDoc]);
-    else if(cmp === "tipeo") h.push(["warn","Apellido mal escrito — la cedula dice " + apDoc]);
-    if(nat && nat.indexOf("URUGUAY") !== 0) h.push(["error","Doc. extranjero (" + doc.nacionalidad + ") — completar Tipo doc y N doc"]);
-    if(capIrregular((p.nombre||"") + " " + (p.apellido||""))) h.push(["warn","Capitalizacion irregular en el nombre"]);
-
-    fila.estado = !h.length ? "ok" : (h.some(function(x){ return x[0] === "error"; }) ? "error" : "warn");
-    fila.obs = h.map(function(x){ return x[1]; }).join(" · ");
-    out.push(fila);
-  });
-
-  // Documento escaneado que no aparece en la planilla: siempre error.
-  docs.forEach(function(d){
-    var ci = soloDig(d.cedula);
-    // Sin cedula no se puede cruzar, pero el documento se leyo: se muestra igual
-    // para completarlo a mano, en vez de desaparecer sin dejar rastro.
-    if(!ci){
-      out.push({ _p:null, _d:d, fecha:"", hora:"", cedula:"", nombre:d.nombre||"",
-        apellido:d.apellido||"", sexo:(d.sexo||"").toUpperCase(), fnac:d.fnac||"",
-        estado:"error", obs:"No se pudo leer la cedula de este documento — escribila a mano para cotejarlo" });
-      return;
-    }
-    for(var i = 0; i < plan.length; i++) if(soloDig(plan[i].cedula) === ci) return;
-    var nat = (d.nacionalidad||"").toUpperCase();
-    out.push({ _p:null, _d:d, fecha:"", hora:"", cedula:ci, nombre:d.nombre||"", apellido:d.apellido||"",
-      sexo:(d.sexo||"").toUpperCase(), fnac:d.fnac||"", estado:"error",
-      obs:"Documento escaneado NO figura en la planilla" +
-        (nat && nat.indexOf("URUGUAY") !== 0 ? " — Doc. extranjero: " + d.nacionalidad : "") +
-        (ciValida(ci) ? "" : " · CEDULA INVALIDA: el digito verificador no cierra") });
-  });
-
-  var ord = { error:0, warn:1, nd:2, ok:3 };
-  return out.sort(function(a,b){
-    return (ord[a.estado] - ord[b.estado]) || (a.hora||"zz").localeCompare(b.hora||"zz");
-  });
+  var ord={error:0,warn:1,nd:2,ok:3};
+  return CotejoCore.comparar(docs,plan,{completa:S.lecturaCompleta!==false}).sort(function(a,b){return ord[a.estado]-ord[b.estado]||(a.hora||'zz').localeCompare(b.hora||'zz');});
 }
 
 /* ───── corrida ───── */
 function analizar(){
   guardarCfg();
-  S.trabajando = true; S.docs = []; S.regs = [];
+  S.trabajando = true; S.docs = []; S.regs = []; S.lecturaCompleta=true;
   $("res").classList.remove("show"); $("avisos").classList.remove("show");
   pintarEstado();
 
@@ -692,33 +464,24 @@ function analizar(){
         $("estado").innerHTML = '<span class="sp"></span>' + t.etq + ': ' + txt + '...';
       }).then(function(r){
         hechas++;
+        if(!r.lectura_completa) S.lecturaCompleta=false;
+        (r.advertencias||[]).forEach(function(m){notas.push({etq:t.etq,msg:m});});
+        r.regs.forEach(function(d){d._pagina=t.idx+1;});
         // La orientacion que funciono queda guardada: la miniatura se corrige
         // sola y una segunda corrida no vuelve a probar las cuatro.
         if(r.url && r.url !== t.url){ S[t.lote][t.idx] = r.url; pintarZonas(); }
         if(!Array.isArray(r.regs) || !r.regs.length) notas.push({ etq:t.etq, msg:motivoSinRegistros(r) });
         else if(t.tipo === "documento"){
-          // Un registro sin cedula, sin nombre y sin apellido no es un documento
-          // leido: es ruido. Se cuenta en los avisos en vez de ensuciar la tabla.
-          var utiles = r.regs.filter(conAlgoLegible);
-          if(utiles.length < r.regs.length)
-            notas.push({ etq:t.etq, msg:(r.regs.length - utiles.length) + " documento(s) salieron sin ningun dato legible y se descartaron" });
-          S.docs = S.docs.concat(utiles);
+          S.docs = S.docs.concat(r.regs);
         }
         else S.regs = S.regs.concat(r.regs);
       }).catch(function(e){
-        hechas++; notas.push({ etq:t.etq, msg:"" + (e.message||e) });
+        S.lecturaCompleta=false; hechas++; notas.push({ etq:t.etq, msg:"" + (e.message||e) });
       });
     });
   });
 
   cadena.then(function(){
-    // Si el modelo no ve la imagen suele inventar datos con formato correcto.
-    // Si ninguna cedula pasa el digito verificador, lo decimos fuerte.
-    var cis = S.docs.concat(S.regs).map(function(x){ return soloDig(x.cedula); }).filter(Boolean);
-    if(cis.length && !cis.filter(ciValida).length){
-      notas.unshift({ etq:"", msg:"ATENCION: ninguna de las " + cis.length + " cedulas leidas pasa el digito verificador. " +
-        "Es muy probable que el modelo no este viendo las imagenes. Revisa el modelo en Ajustes." });
-    }
     S.trabajando = false;
     recotejar();
     pintarAvisos(notas);
@@ -806,8 +569,8 @@ function corregir(i, campo, valor){
   if(!f) return;
   var destino = f._p || f._d;
   if(!destino) return;
-  destino[campo] = campo === "cedula" ? soloDig(valor) : valor.trim();
-  if(campo === "cedula" && f._p && f._d) f._d.cedula = destino[campo];
+  destino[campo] = campo === "cedula" ? CotejoCore.numero(valor) : valor.trim();
+  // Corregir la planilla no debe modificar la evidencia del documento.
   recotejar();
 }
 

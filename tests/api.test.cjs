@@ -1,0 +1,12 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');
+const {handler}=require('../netlify/functions/analizar.js');
+const valid={registros:[{cedula:'12345672',nombre:'ANA',apellido:'PEREZ',fnac:'1980-01-01',sexo:''}],lectura_completa:true,advertencias:[]};
+const event={httpMethod:'POST',body:JSON.stringify({tipo:'documento',mediaType:'image/jpeg',image:'YWJj'})};
+async function withProvider(run){const old=global.fetch,oldKey=process.env.LLM_API_KEY;process.env.LLM_API_KEY='test-only';try{await run();}finally{global.fetch=old;if(oldKey===undefined)delete process.env.LLM_API_KEY;else process.env.LLM_API_KEY=oldKey;}}
+test('envía detalle alto y valida objeto',()=>withProvider(async()=>{let sent;global.fetch=async(u,init)=>{sent=JSON.parse(init.body);return {ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:JSON.stringify(valid)}}]})};};let r=await handler(event);assert.equal(r.statusCode,200);assert.equal(JSON.parse(r.body).registros.length,1);assert.equal(sent.messages[0].content[1].image_url.detail,'high');assert.equal(sent.store,false);}));
+test('truncación no se declara éxito',()=>withProvider(async()=>{global.fetch=async()=>({ok:true,json:async()=>({choices:[{finish_reason:'length',message:{content:JSON.stringify(valid)}}]})});assert.equal((await handler(event)).statusCode,502);}));
+test('rechazo del proveedor no se declara página vacía',()=>withProvider(async()=>{global.fetch=async()=>({ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{refusal:'rechazo',content:''}}]})});assert.equal((await handler(event)).statusCode,502);}));
+test('JSON inválido da error explícito',()=>withProvider(async()=>{global.fetch=async()=>({ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:'[ truncado'}}]})});assert.equal((await handler(event)).statusCode,502);}));
+test('error remoto no devuelve documentos ni respuesta cruda',()=>withProvider(async()=>{global.fetch=async()=>({ok:false,status:401,text:async()=> 'secret-sensitive-body'});const r=await handler(event);assert.equal(r.statusCode,502);assert.ok(!r.body.includes('secret-sensitive-body'));}));
+test('entrada inválida no consume llamada',()=>withProvider(async()=>{global.fetch=()=>{throw new Error('No debe llamarse');};const r=await handler({...event,body:JSON.stringify({image:'abc',tipo:'otro'})});assert.equal(r.statusCode,400);}));
+test('body null es entrada inválida y no fallo interno',()=>withProvider(async()=>{assert.equal((await handler({...event,body:'null'})).statusCode,400);}));

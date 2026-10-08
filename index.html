@@ -223,6 +223,9 @@ textarea.paste{width:100%;min-height:170px;background:var(--sur2);border:1px sol
 <div class="toast" id="toast"></div>
 
 <script src="vendor/pdf.min.js"></script>
+<script src="extraccion.js"></script>
+<script src="cotejo-core.js"></script>
+<script src="lectura-imagenes.js"></script>
 <script>
 if (window.pdfjsLib) { pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js"; }
 // ───── ESTADO ─────
@@ -231,7 +234,7 @@ var ses = { paso:1, docUrls:[], planUrls:[], resultados:[], err:"", cargando:0 }
 var PILLS = { ok:["✓ OK","p-ok"], error:["✗ Error","p-error"], warn:["⚠ Aviso","p-warn"], nd:["? N/D","p-nd"] };
 
 function uid(){ return Date.now()+Math.random(); }
-function fmtCI(ci){ if(!ci) return "—"; var n=(""+ci).replace(/\D/g,""); return n.length>=7 ? n.slice(0,-1).replace(/\B(?=(\d{3})+(?!\d))/g,".")+"-"+n.slice(-1) : ci; }
+function fmtCI(ci){ if(!ci) return "—"; var n=CotejoCore.numero(ci); return /^\d+$/.test(n)&&n.length>=7 ? n.slice(0,-1).replace(/\B(?=(\d{3})+(?!\d))/g,".")+"-"+n.slice(-1) : ci; }
 function cap(s){ return s ? s.charAt(0).toUpperCase()+s.slice(1).toLowerCase() : ""; }
 function esc(s){ return (""+(s==null?"":s)).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;"); }
 function toast(m,t){ var e=document.getElementById("toast"); e.textContent=m; e.className="toast t-"+(t||"info")+" show"; clearTimeout(window._tt); window._tt=setTimeout(function(){e.classList.remove("show");},3200); }
@@ -251,7 +254,7 @@ window.onload = function(){
 function leerB64(file){ return new Promise(function(res,rej){ var fr=new FileReader(); fr.onload=function(e){res(e.target.result);}; fr.onerror=rej; fr.readAsDataURL(file); }); }
 
 function comprimir(file, maxDim, calidad){
-  maxDim = maxDim||1600; calidad = calidad||0.82;
+  maxDim = maxDim||3600; calidad = calidad||0.94;
   return new Promise(function(resolve){
     var img = new Image(), url = URL.createObjectURL(file);
     var fallback = function(){ URL.revokeObjectURL(url); leerB64(file).then(resolve); };
@@ -332,10 +335,10 @@ function esImagen(f){ return f.type.indexOf("image/")===0 || /\.(jpe?g|png|heic|
 
 // Renderiza cada pagina de un PDF a una imagen JPEG
 function pdfAImagenes(file, maxDim){
-  maxDim = maxDim || 1600;
+  maxDim = maxDim || 3600;
   if(!window.pdfjsLib) return Promise.reject(new Error("No se pudo cargar el lector de PDF"));
   return file.arrayBuffer().then(function(buf){
-    return pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise;
+    return pdfjsLib.getDocument({ data: new Uint8Array(buf), isEvalSupported:false }).promise;
   }).then(function(pdf){
     var paginas = [], cadena = Promise.resolve();
     for(var n=1; n<=pdf.numPages; n++){
@@ -345,14 +348,14 @@ function pdfAImagenes(file, maxDim){
             var base = page.getViewport({ scale: 1 });
             var escala = maxDim / Math.max(base.width, base.height);
             if(!isFinite(escala) || escala <= 0) escala = 2;
-            escala = Math.min(Math.max(escala, 1), 4);
+            escala = Math.min(Math.max(escala, 1), 6);
             var vp = page.getViewport({ scale: escala });
             var c = document.createElement("canvas");
             c.width = Math.round(vp.width); c.height = Math.round(vp.height);
             var ctx = c.getContext("2d");
             ctx.fillStyle = "#fff"; ctx.fillRect(0,0,c.width,c.height);
             return page.render({ canvasContext: ctx, viewport: vp }).promise.then(function(){
-              paginas.push(c.toDataURL("image/jpeg", 0.85));
+              paginas.push(c.toDataURL("image/jpeg", 0.94));
             });
           });
         });
@@ -405,82 +408,28 @@ function setupDrop(id,kind){
 }
 
 // ───── LLAMADA A LA NETLIFY FUNCTION ─────
-// Reduce una imagen ya en dataURL a una fraccion de su tamano
-function reducirDataUrl(dataUrl, factor){
-  return new Promise(function(resolve){
-    var img = new Image();
-    img.onload = function(){
-      var w = Math.max(400, Math.round(img.width*factor));
-      var h = Math.max(400, Math.round(img.height*factor));
-      var c = document.createElement("canvas");
-      c.width = w; c.height = h;
-      var x = c.getContext("2d");
-      x.fillStyle = "#fff"; x.fillRect(0,0,w,h);
-      x.drawImage(img, 0, 0, w, h);
-      resolve(c.toDataURL("image/jpeg", 0.8));
-    };
-    img.onerror = function(){ resolve(dataUrl); };
-    img.src = dataUrl;
+function pedirAnalisis(dataUrl,tipo,parte){
+  parte=parte||{};
+  return fetch("/.netlify/functions/analizar",{
+    method:"POST",headers:{"content-type":"application/json"},
+    body:JSON.stringify({image:dataUrl.split(",")[1],mediaType:dataUrl.split(";")[0].split(":")[1],tipo:tipo,contexto:parte.contexto,descripcion:parte.descripcion})
+  }).then(async function(r){
+    var d;try{d=await r.json();}catch(e){throw new Error("El servidor no completó la lectura de esta parte.");}
+    if(!r.ok||d.error)throw new Error(d.error||"No se completó la lectura.");
+    return Extraccion.validar(d);
   });
 }
-
-// true cuando el proveedor se queja del tamano o del detalle de la imagen,
-// no de un fallo pasajero: en ese caso reintentar igual no sirve de nada.
-function esErrorDeTamano(txt){
-  return /too large|too many|demasiado|detail|tokens|payload|413|image size|resolution/i.test(txt||"");
-}
-
-function pedirAnalisis(dataUrl, tipo){
-  var b64 = dataUrl.split(",")[1];
-  var mt = (dataUrl.split(";")[0]||"").split(":")[1] || "image/jpeg";
-  return fetch("/.netlify/functions/analizar", {
-    method:"POST", headers:{"content-type":"application/json"},
-    body: JSON.stringify({ image:b64, mediaType:mt, tipo:tipo })
-  }).then(function(r){
-    if(r.status===502 || r.status===504){
-      var e = new Error("La pagina tardo demasiado y el servidor corto la conexion.");
-      e.reintentable = true; throw e;
-    }
-    return r.json().then(function(d){
-      if(!r.ok){
-        var msg = (d.error||"") + " " + (d.detalle||"");
-        var err = new Error(d.error || ("HTTP "+r.status));
-        err.reintentable = esErrorDeTamano(msg);
-        err.crudo = (d.detalle||"").slice(0,300);
-        throw err;
-      }
-      var regs = d.registros || [];
-      // El modelo respondio pero no se pudo leer como JSON: guardamos lo que dijo
-      // para poder mostrarlo, en vez de devolver una lista vacia sin explicacion.
-      if(d.aviso) regs.aviso = d.aviso + (d.crudo ? " — respondio: " + d.crudo : "");
-      return regs;
-    }, function(){
-      var e2 = new Error("Respuesta no valida del servidor.");
-      e2.reintentable = true; throw e2;
-    });
-  });
-}
-
-// Primer intento a resolucion completa; si el proveedor se queja por tamano
-// o detalle, reintenta con la imagen mas chica antes de darse por vencido.
-function analizarImagen(dataUrl, tipo){
-  return pedirAnalisis(dataUrl, tipo).catch(function(e1){
-    if(!e1.reintentable) throw e1;
-    return reducirDataUrl(dataUrl, 0.6).then(function(mas_chica){
-      return pedirAnalisis(mas_chica, tipo).catch(function(e2){
-        if(!e2.reintentable) throw e2;
-        return reducirDataUrl(dataUrl, 0.4).then(function(minima){
-          return pedirAnalisis(minima, tipo);
-        });
-      });
-    });
+function analizarImagen(dataUrl,tipo){
+  return LecturaImagenes.leer(dataUrl,tipo,pedirAnalisis).then(function(r){
+    if(!r.lectura_completa)ses.lecturaCompleta=false;
+    var regs=r.regs;if(r.advertencias.length)regs.aviso=r.advertencias.join(" · ");return regs;
   });
 }
 
 function analizar(){
   if(ses.cargando>0){ toast("Esperá a que terminen de cargarse los archivos","error"); return; }
   if(!ses.docUrls.length && !ses.planUrls.length){ toast("No hay paginas para analizar","error"); return; }
-  ses.paso="proc"; ses.err=""; renderCotejo();
+  ses.paso="proc"; ses.err=""; ses.lecturaCompleta=true; renderCotejo();
   var docs=[], plan=[], total=ses.docUrls.length+ses.planUrls.length, hechas=0;
   var notas=[];
   var anotar=function(etq, rs){
@@ -497,7 +446,7 @@ function analizar(){
       return analizarImagen(u,"documento").then(function(rs){
           anotar("documento pagina "+(i+1), rs); docs=docs.concat(rs); prog();
         })
-        .catch(function(e){ notas.push("documento pagina "+(i+1)+": "+e.message+(e.crudo?" — "+e.crudo:"")); prog(); });
+        .catch(function(e){ ses.lecturaCompleta=false; notas.push("documento pagina "+(i+1)+": "+e.message+(e.crudo?" — "+e.crudo:"")); prog(); });
     });
   });
   ses.planUrls.forEach(function(u,i){
@@ -506,22 +455,12 @@ function analizar(){
       return analizarImagen(u,"planilla").then(function(rs){
           anotar("planilla pagina "+(i+1), rs); plan=plan.concat(rs); prog();
         })
-        .catch(function(e){ notas.push("planilla pagina "+(i+1)+": "+e.message+(e.crudo?" — "+e.crudo:"")); prog(); });
+        .catch(function(e){ ses.lecturaCompleta=false; notas.push("planilla pagina "+(i+1)+": "+e.message+(e.crudo?" — "+e.crudo:"")); prog(); });
     });
   });
   cadena.then(function(){
     msg("Cotejando...");
     ses.resultados = cotejar(docs, plan);
-
-    // Si el modelo no ve la imagen suele inventar datos con formato correcto.
-    // Si ninguna cedula pasa el digito verificador, avisamos fuerte.
-    var leidas = docs.concat(plan).map(function(x){ return soloDig(x.cedula); }).filter(Boolean);
-    var validas = leidas.filter(ciValida).length;
-    if(leidas.length && validas === 0){
-      notas.unshift("ATENCION: ninguna de las "+leidas.length+" cedulas leidas pasa el digito verificador. "+
-        "Es muy probable que el modelo no este viendo las imagenes y este inventando los datos. "+
-        "Usa el boton de prueba del paso 1 y revisa LLM_MODEL.");
-    }
 
     if(notas.length) ses.err = notas.join(" · ");
     ses.paso=3; renderCotejo();
@@ -560,121 +499,10 @@ function soloDig(s){ return (""+(s||"")).replace(/\D/g,""); }
 
 // Digito verificador de la cedula uruguaya. Atrapa tanto errores de lectura
 // como numeros inventados por el modelo.
-function ciValida(ci){
-  var n = soloDig(ci);
-  if(n.length < 7 || n.length > 8) return false;
-  while(n.length < 8) n = "0" + n;
-  var coef = [2,9,8,7,6,3,4], suma = 0;
-  for(var i=0;i<7;i++) suma += parseInt(n.charAt(i),10) * coef[i];
-  return ((10 - (suma % 10)) % 10) === parseInt(n.charAt(7),10);
-}
-function capIrregular(s){ return /[a-z][A-Z]/.test(s) && /[A-Z]{2,}/.test(s); }
-function norm(s){ return (""+(s||"")).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z]/g,""); }
-
-// Fecha a YYYY-MM-DD, acepta YYYY-MM-DD o DD/MM/YYYY
-function normFecha(v){
-  v = (""+(v||"")).trim();
-  if(!v) return "";
-  if(/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
-  var b = v.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-  if(b) return b[3]+"-"+("0"+b[2]).slice(-2)+"-"+("0"+b[1]).slice(-2);
-  return "";
-}
-
-// Distancia de edicion: separa un error de tipeo de un apellido realmente distinto
-function lev(a,b){
-  if(a===b) return 0;
-  var m=a.length, n=b.length;
-  if(!m) return n;
-  if(!n) return m;
-  var fila=[], i, j;
-  for(j=0;j<=n;j++) fila[j]=j;
-  for(i=1;i<=m;i++){
-    var prev=fila[0]; fila[0]=i;
-    for(j=1;j<=n;j++){
-      var tmp=fila[j];
-      fila[j]=Math.min(fila[j]+1, fila[j-1]+1, prev+(a.charAt(i-1)===b.charAt(j-1)?0:1));
-      prev=tmp;
-    }
-  }
-  return fila[n];
-}
-
-// La planilla trae un apellido y la cedula suele traer dos.
-// Devuelve "ok" | "tipeo" | "distinto"
-function compararApellido(apPlanilla, apDoc){
-  var P=norm(apPlanilla), D=norm(apDoc);
-  if(!P || !D) return "ok";
-  if(D.indexOf(P)===0 || P.indexOf(D)===0) return "ok";
-  var recorte = D.slice(0, P.length);
-  var umbral = P.length<=4 ? 1 : 2;
-  return lev(P, recorte) <= umbral ? "tipeo" : "distinto";
-}
+function ciValida(ci){ return CotejoCore.ciValida(ci); }
 
 function cotejar(docs, plan){
-  var hoy = new Date().toISOString().slice(0,10);
-  var out = [];
-
-  plan.forEach(function(p){
-    var ci = soloDig(p.cedula);
-    var doc = null;
-    for(var i=0;i<docs.length;i++){ if(soloDig(docs[i].cedula)===ci && ci){ doc=docs[i]; break; } }
-    var estado="nd", obs="";
-
-    if(doc){
-      var sD=(doc.sexo||"").toUpperCase(), sP=(p.sexo||"").toUpperCase();
-      var nat=(doc.nacionalidad||"").toUpperCase();
-      var extranjero = nat && nat.indexOf("URUGUAY")!==0;
-      var venc = normFecha(doc.vencimiento);
-      var cmpAp = compararApellido(p.apellido, doc.apellido);
-      var apDoc = (doc.apellido||"").toUpperCase();
-
-      // Una fila puede tener mas de un problema: se juntan todos y manda el mas grave
-      var hallazgos = [];
-      if(ci && !ciValida(ci))
-        hallazgos.push(["error","CEDULA INVALIDA — el digito verificador no cierra. Revisar el numero"]);
-      if(venc && venc < hoy)
-        hallazgos.push(["error","CEDULA VENCIDA el "+venc+" — documento no vigente al ingreso"]);
-      if(sD && sP && sD!==sP)
-        hallazgos.push(["error","Sexo en planilla: "+sP+" — en documento: "+sD+". Corregir a "+sD]);
-      if(cmpAp==="distinto")
-        hallazgos.push(["error","APELLIDO INCORRECTO — la cedula dice "+apDoc]);
-      else if(cmpAp==="tipeo")
-        hallazgos.push(["warn","Apellido mal escrito — la cedula dice "+apDoc]);
-      if(extranjero)
-        hallazgos.push(["error","Doc. extranjero ("+doc.nacionalidad+") — completar Tipo doc y N doc"]);
-      if(capIrregular((p.nombre||"")+" "+(p.apellido||"")))
-        hallazgos.push(["warn","Capitalizacion irregular en el nombre"]);
-
-      if(!hallazgos.length){ estado="ok"; obs=""; }
-      else {
-        estado = hallazgos.some(function(h){ return h[0]==="error"; }) ? "error" : "warn";
-        obs = hallazgos.map(function(h){ return h[1]; }).join(" · ");
-      }
-    } else {
-      estado="nd"; obs="Documento no escaneado / no presentado";
-    }
-
-    out.push({ id:uid(), _on:true, fecha:p.fecha||"", hora:p.hora||"", cedula:ci,
-      nombre:p.nombre||"", apellido:p.apellido||"", sexo:(p.sexo||"").toUpperCase(),
-      fnac:p.fnac||"", estado:estado, obs:obs });
-  });
-
-  docs.forEach(function(d){
-    var ci = soloDig(d.cedula); if(!ci) return;
-    var esta=false;
-    for(var i=0;i<plan.length;i++){ if(soloDig(plan[i].cedula)===ci){ esta=true; break; } }
-    if(!esta){
-      var nat=(d.nacionalidad||"").toUpperCase();
-      var ex = nat && nat.indexOf("URUGUAY")!==0 ? " — Doc. extranjero: "+d.nacionalidad : "";
-      var obsExtra = ciValida(ci) ? "" : " · CEDULA INVALIDA: el digito verificador no cierra";
-      out.push({ id:uid(), _on:true, fecha:"", hora:"", cedula:ci, nombre:d.nombre||"", apellido:d.apellido||"",
-        sexo:(d.sexo||"").toUpperCase(), fnac:d.fnac||"", estado:"error",
-        obs:"Documento escaneado NO figura en la planilla"+ex+obsExtra });
-    }
-  });
-
-  return out;
+  return CotejoCore.comparar(docs,plan,{completa:ses.lecturaCompleta!==false}).map(function(r){ r.id=uid();r._on=true;return r; });
 }
 
 // ───── REVISION ─────
@@ -704,7 +532,7 @@ function renderResultados(){
         '<div class="rc-f"><div class="rc-l">Nombre</div><input class="rc-i" value="'+esc(r.nombre)+'" onchange="updR('+i+',\'nombre\',this.value)"></div>'+
         '<div class="rc-f"><div class="rc-l">Apellido</div><input class="rc-i" value="'+esc(r.apellido)+'" onchange="updR('+i+',\'apellido\',this.value)"></div>'+
         '<div class="rc-f"><div class="rc-l">Cedula</div><input class="rc-i" value="'+esc(r.cedula)+'" onchange="updR('+i+',\'cedula\',this.value)"></div>'+
-        '<div class="rc-f"><div class="rc-l">Sexo</div><select class="rc-sel" onchange="updR('+i+',\'sexo\',this.value)"><option value="F"'+(r.sexo==="F"?" selected":"")+'>F</option><option value="M"'+(r.sexo==="M"?" selected":"")+'>M</option></select></div>'+
+        '<div class="rc-f"><div class="rc-l">Sexo</div><select class="rc-sel" onchange="updR('+i+',\'sexo\',this.value)"><option value=""'+(!r.sexo?" selected":"")+'>—</option><option value="F"'+(r.sexo==="F"?" selected":"")+'>F</option><option value="M"'+(r.sexo==="M"?" selected":"")+'>M</option></select></div>'+
         '<div class="rc-f"><div class="rc-l">Estado</div><select class="rc-sel" style="color:'+col+'" onchange="updR('+i+',\'estado\',this.value);renderResultados()"><option value="ok"'+(r.estado==="ok"?" selected":"")+'>✓ OK</option><option value="error"'+(r.estado==="error"?" selected":"")+'>✗ Error</option><option value="warn"'+(r.estado==="warn"?" selected":"")+'>⚠ Aviso</option><option value="nd"'+(r.estado==="nd"?" selected":"")+'>? N/D</option></select></div>'+
         '<div style="display:flex;align-items:center;justify-content:center"><input type="checkbox" '+(r._on?"checked":"")+' onchange="togUno('+i+',this.checked)" style="width:16px;height:16px;accent-color:var(--cyan)"></div>'+
         '</div>'+
@@ -719,7 +547,7 @@ function renderResultados(){
     '<div style="display:flex;gap:.55rem"><button class="btn-c" onclick="irPaso(2)">← Volver</button>'+
     '<button class="btn-p" style="background:var(--grn)" onclick="importarSel()">✓ Importar seleccionados</button></div>';
 }
-function updR(i,c,v){ ses.resultados[i][c]=v; }
+function updR(i,c,v){ var r=ses.resultados[i];r[c]=v;if(c!=="estado"){r.estado="warn";r.obs="Dato editado manualmente: revisar el cotejo contra el original.";renderResultados();} }
 function togUno(i,v){ ses.resultados[i]._on=v; renderResultados(); }
 function togTodos(v){ ses.resultados.forEach(function(r){ r._on=v; }); renderResultados(); }
 function importarSel(){
