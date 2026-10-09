@@ -89,6 +89,17 @@ La página es estática y la clave del proveedor vive en un servidor aparte, por
 el operador de la sala no tiene que manejar ninguna clave de API. Son dos piezas
 independientes y cada una se publica donde conviene.
 
+**Versión de la página.** Cada `<script>` de la app lleva `?v=<hash>` y el pie
+muestra esa misma versión. GitHub Pages sirve los `.js` con caché de minutos, así
+que sin eso un refresh normal trae el HTML nuevo con los scripts viejos: la app
+queda en un estado mezclado que no es ninguna de las dos versiones, y corre
+reglas distintas de las que uno cree. El hash sale del contenido y del nombre de
+`extraccion.js`, `servidor.js`, `cotejo-core.js` y `lectura-imagenes.js`, así que
+cambia solo cuando cambia el código. Después de tocar cualquiera de esos
+archivos: `node herramientas/version.mjs`. `npm test` corre lo mismo con
+`--revisar` y falla si quedaron sin sellar, de modo que no se publica en
+silencio. Para saber qué versión está viva, mirar el pie de la página.
+
 **Página (GitHub Pages).** Settings → Pages → Source: *Deploy from a branch*,
 rama `main`, carpeta `/ (root)`. No hace falta build ni workflow: los HTML y
 `vendor/` están en la raíz, y `.nojekyll` evita que Jekyll toque nada. Los
