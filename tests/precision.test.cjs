@@ -10,16 +10,15 @@ test('prefijos parciales no acreditan apellidos',()=>assert.equal(core.compatibl
 test('apellido vacío no acredita coincidencia',()=>assert.equal(run({apellido:''}).estado,'warn'));
 test('nacimiento se coteja sin copiar fecha de ingreso',()=>assert.equal(run({}, {fnac:'1980-10-04'}).estado,'error'));
 test('fecha imposible no se compara como válida',()=>assert.equal(core.fecha('2026-02-31'),''));
-test('sexo ausente no se infiere',()=>assert.match(run({sexo:''}).obs,/Sexo sin verificar/));
-// Los frentes de cedula no imprimen sexo: si eso bajara la fila, ninguna
-// quedaria OK nunca y el estado dejaria de distinguir nada.
-test('un sexo que el documento no trae no baja la fila',()=>{const r=run({sexo:''});assert.equal(r.estado,'ok');assert.match(r.obs,/Sexo sin verificar/);});
+// La sala no coteja el sexo: no se reporta que falte, pero una diferencia si,
+// porque no habla del sexo sino de que el documento podria no ser de esa persona.
+test('un sexo que el documento no trae no se reporta',()=>{const r=run({sexo:''});assert.equal(r.estado,'ok');assert.doesNotMatch(r.obs,/[Ss]exo/);});
 test('un sexo diferente sigue siendo error',()=>assert.equal(run({},{sexo:'M'}).estado,'error'));
-// El recorte: una ausencia que puede esconder un riesgo no se perdona.
-test('un vencimiento que no se leyo sigue bajando la fila',()=>assert.equal(run({vencimiento:''}).estado,'warn'));
+// La vigencia tampoco se coteja: ni vencido ni sin leer dicen nada.
+test('un documento vencido ya no se reporta',()=>{const r=run({vencimiento:'2020-01-01'});assert.equal(r.estado,'ok');assert.doesNotMatch(r.obs,/VENCID/i);});
+test('un vencimiento que no se leyo ya no se reporta',()=>{const r=run({vencimiento:''});assert.equal(r.estado,'ok');assert.doesNotMatch(r.obs,/[Vv]encimiento/);});
+// El nacimiento si se sigue cotejando.
 test('un nacimiento que no se leyo sigue bajando la fila',()=>assert.equal(run({fnac:''}).estado,'warn'));
-test('vencimiento se compara al ingreso histórico',()=>assert.equal(run({vencimiento:'2026-10-05'},{},{hoy:'2026-10-08'}).estado,'ok'));
-test('vencimiento ausente es diferente de sin vencimiento',()=>{assert.equal(run({vencimiento:''}).estado,'warn');assert.equal(run({vencimiento:'',sin_vencimiento:true}).estado,'ok');});
 test('residente extranjero con CI uruguaya no cambia tipo por nacionalidad',()=>assert.equal(run({nacionalidad:'COLOMBIANA'}).estado,'ok'));
 test('dos documentos con mismo número son ambiguos',()=>assert.match(core.comparar([doc,{...doc,nombre:'OTRA'}],[plan])[0].obs,/Varios documentos/));
 test('visitas repetidas incluso idénticas se conservan',()=>assert.equal(core.comparar([doc],[plan,{...plan}]).length,2));

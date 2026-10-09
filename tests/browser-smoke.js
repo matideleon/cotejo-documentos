@@ -34,6 +34,21 @@ return (async()=>{
   else{abrirCotejo();ses.docUrls=[docURL];ses.planUrls=[planURL];}
   analizar();
   await new Promise((resolve,reject)=>{let n=0;let timer=setInterval(()=>{if(simple?!S.trabajando:ses.paso===3){clearInterval(timer);resolve();}else if(++n>400){clearInterval(timer);reject(new Error('timeout UI'));}},50);});
+  // Sacar un <th> y olvidarse del <td> corre todas las celdas una columna: la
+  // tabla se sigue dibujando y los datos quedan abajo del titulo equivocado.
+  // Solo en la interfaz simple: ahi la tabla del cotejo es la salida. En la
+  // completa la tabla es el registro acumulado, que se llena recien cuando se
+  // agregan los resultados, asi que en este flujo esta vacia a proposito.
+  let columnas=null;
+  if(simple){
+   const t=document.querySelector('table'), th=t.querySelectorAll('thead th').length;
+   const fila=t.querySelector('tbody tr');
+   if(!fila)throw new Error('FAIL: la tabla del cotejo quedo sin filas');
+   const td=fila.querySelectorAll('td').length;
+   if(th!==td)throw new Error('FAIL: la tabla tiene '+th+' titulos y '+td+' celdas por fila');
+   if(/sexo/i.test(t.querySelector('thead').textContent))throw new Error('FAIL: la columna de sexo sigue en la tabla');
+   columnas=th;
+  }
   const rows=simple?S.filas:ses.resultados;
   if(rows.length!==7||rows.some(r=>r.estado!=='ok'))throw new Error('Resultado UI incorrecto: '+JSON.stringify(rows.map(r=>({e:r.estado,o:r.obs}))));
   if(simple){const before=S.docs[0].cedula;corregir(0,'cedula','99999999');if(S.docs[0].cedula!==before)throw new Error('La edición alteró el documento');if(!tablaCSV().includes('Ana'))throw new Error('CSV incompleto');}
@@ -44,6 +59,6 @@ return (async()=>{
    const partial=await LecturaImagenes.leer(planURL,'planilla',async(url,tipo,parte)=>({registros:Array(Math.max(0,parte.celdas+extra)).fill(d),encabezados:0,lectura_completa:true,advertencias:[]}));
    if(partial.regs.length||partial.lectura_completa||!partial.advertencias.length)throw new Error('Se aceptaron filas de una respuesta con cantidad incorrecta');
   }
-  return {interfaz:simple?'simple':'completa',filas:7,llamadasSimuladas:calls,edicionVerificada:true,cantidadesIncorrectasRechazadas:true,contextoSinFilasAjenas:true};
+  return {interfaz:simple?'simple':'completa',columnas,filas:7,llamadasSimuladas:calls,edicionVerificada:true,cantidadesIncorrectasRechazadas:true,contextoSinFilasAjenas:true};
  }finally{window.fetch=originalFetch;}
 })()
