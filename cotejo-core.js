@@ -68,8 +68,14 @@
         if(nacP && nacD && nacP!==nacD) add('error','FECHA DE NACIMIENTO DIFERENTE — planilla: '+nacP+'; documento: '+nacD);
         else if(!nacP || !nacD) add('warn','Fecha de nacimiento sin verificar: falta o no es válida en una fuente.');
         var sP=String(p.sexo||'').toUpperCase(), sD=String(d.sexo||'').toUpperCase();
+        // Una diferencia de sexo es una señal fuerte y queda en error. Que una
+        // fuente no lo traiga es otra cosa: los frentes de cédula no imprimen
+        // sexo, así que esto saltaba en el 100% de las filas y ninguna podía
+        // quedar OK. Va como nota: se muestra, pero no baja el estado, porque
+        // no es una discrepancia y su ausencia no esconde ninguno de los
+        // riesgos que el cotejo existe para encontrar.
         if(/^[MF]$/.test(sP)&&/^[MF]$/.test(sD)) { if(sP!==sD) add('error','Sexo diferente — planilla: '+sP+'; documento: '+sD); }
-        else add('warn','Sexo sin verificar: no consta o no se lee en una fuente.');
+        else add('nota','Sexo sin verificar: no consta o no se lee en una fuente.');
         var venc=fecha(d.vencimiento), ingreso=fecha(p.fecha);
         if(venc && venc<(ingreso||hoy)) add('error','DOCUMENTO VENCIDO el '+venc+(ingreso?' al ingreso del '+ingreso:' a la fecha actual'));
         if(!venc && d.sin_vencimiento!==true) add('warn','Vencimiento sin verificar.');
@@ -82,7 +88,12 @@
       // no afirmar que un documento FALTA cuando puede estar en una parte que
       // no se pudo leer.
       if(p._incompleto || (d && d._incompleto)) add('warn','Lectura incompleta en este registro: pendiente de revisión.');
-      f.estado=h.some(function(x){return x[0]==='error';})?'error':h.some(function(x){return x[0]==='warn';})?'warn':h.length?'nd':'ok';
+      // 'nota' se muestra en la observacion pero no baja el estado. Todo lo
+      // demas si: una ausencia que puede esconder un riesgo --vencimiento sin
+      // leer esconde un documento vencido, nacimiento sin leer esconde un
+      // menor, nombre sin leer es la identidad misma-- sigue siendo aviso.
+      function hay(nivel){ return h.some(function(x){ return x[0]===nivel; }); }
+      f.estado=hay('error')?'error':hay('warn')?'warn':hay('nd')?'nd':'ok';
       f.obs=h.map(function(x){return x[1];}).join(' · '); out.push(f);
     });
     docs.forEach(function(d) {

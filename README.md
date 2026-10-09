@@ -57,7 +57,22 @@ avisada para revisar contra el original.
 - Se comparan nombres, apellidos y nacimiento. Tildes y mayúsculas no importan;
   primer nombre/apellido se acepta solo como palabra completa.
 - Sexo se compara solo cuando aparece explícitamente en ambas fuentes. No se
-  infiere por nombre o retrato. Si falta, se indica **sin verificar**.
+  infiere por nombre o retrato. Una diferencia es **error**; que una fuente no lo
+  traiga se anota como **sin verificar** pero no baja el estado de la fila: los
+  frentes de cédula no imprimen sexo, así que lo contrario dejaba el 100% de las
+  filas en aviso y ninguna podía quedar OK.
+- **OK significa «no se encontró ninguna discrepancia», no «todo verificado».** El
+  recorte de la regla anterior vale solo para el sexo. Una ausencia que puede
+  esconder un riesgo sigue siendo aviso: un vencimiento que no se leyó esconde un
+  documento vencido, un nacimiento que no se leyó esconde un menor, y un nombre o
+  apellido ilegible es la identidad misma.
+- El emisor se reconoce por palabra (`URUGUAY`, `ROU`, `URY`, `UY`), no por la
+  cadena entera: el carné dice «REPÚBLICA ORIENTAL DEL URUGUAY». Compararla
+  completa marcaba todos los documentos uruguayos como extranjeros y, peor,
+  saltaba el control del dígito verificador, que solo corre sobre los nacionales.
+- La lectura incompleta se mira **por registro**: un campo ilegible en un
+  documento no vuelve dudosas las demás filas. La bandera global se usa solo para
+  no afirmar que algo **falta** cuando puede estar en una parte que no se leyó.
 - El vencimiento se verifica a la fecha de ingreso, o a la fecha actual de
   Montevideo si falta el ingreso (en ese caso se agrega un aviso).
 - Nacionalidad y país emisor son campos diferentes. Tener nacionalidad extranjera
