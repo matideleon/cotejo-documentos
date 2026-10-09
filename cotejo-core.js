@@ -4,7 +4,14 @@
   else root.CotejoCore = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function() {
   'use strict';
-  function numero(v) { return String(v == null ? '' : v).normalize('NFKC').toUpperCase().replace(/[\s.\-]/g, ''); }
+  // Se saca la puntuacion con la que se escribe un numero y la que deja el
+  // escaneo: una comilla pegada a la cedula alcanzaba para que la misma
+  // persona apareciera dos veces, una pidiendo revisar y otra como documento
+  // sin fila en la planilla. Ninguna cedula lleva estos signos, asi que no
+  // puede juntar dos numeros que de verdad sean distintos. Letras y ceros se
+  // conservan: ahi si la diferencia es el dato. Entran tambien las marcas
+  // combinantes, porque NFKC deja un acento suelto (´) como marca sin letra.
+  function numero(v) { return String(v == null ? '' : v).normalize('NFKC').toUpperCase().replace(/[\s.\-'\u2019\u2018\u00b4`"\u201c\u201d_/\\\u0300-\u036f]/g, ''); }
   function palabras(v) { return String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z\s'-]/g, '').trim().split(/[\s'-]+/).filter(Boolean); }
   function compatibles(a, b) {
     var A = palabras(a), B = palabras(b);

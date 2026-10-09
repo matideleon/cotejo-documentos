@@ -52,8 +52,12 @@ avisada para revisar contra el original.
 
 ## Reglas
 
-- Coincidencia por número, conservando ceros y letras; solo se quitan espacios,
-  puntos y guiones. No se adivinan dígitos para validar una CI.
+- Coincidencia por número, conservando ceros y letras. Se quita la puntuación con
+  la que se escribe un número y la que deja el escaneo —espacios, puntos, guiones,
+  comillas, barras, guiones bajos y acentos sueltos—: una comilla pegada a la
+  cédula alcanzaba para que la misma persona apareciera en dos filas. Ninguna
+  cédula lleva esos signos, así que no puede juntar dos números distintos. No se
+  adivinan dígitos para validar una CI.
 - Se comparan nombres, apellidos y nacimiento. Tildes y mayúsculas no importan;
   primer nombre/apellido se acepta solo como palabra completa.
 - Sexo se compara solo cuando aparece explícitamente en ambas fuentes. No se

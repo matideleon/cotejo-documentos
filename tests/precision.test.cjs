@@ -36,6 +36,20 @@ test('una parte sin confirmar solo ensucia su propio registro',()=>{
 test('lectura parcial no afirma ausencia de planilla',()=>assert.equal(core.comparar([doc],[],{completa:false})[0].estado,'warn'));
 test('lectura parcial no afirma ausencia de documento',()=>assert.match(core.comparar([],[plan],{completa:false})[0].obs,/no se puede confirmar si se presentó/));
 test('número distinto con nombre compatible pide revisar',()=>assert.match(run({cedula:'23456789'}).obs,/número distinto/));
+// Caso real de produccion: la planilla se leyo "47626493'" y el documento
+// "4.762.649-3", y la misma persona salio en dos filas.
+test('una comilla del escaneo no parte a la persona en dos',()=>{
+  assert.equal(core.numero("47626493'"),core.numero('4.762.649-3'));
+  const d={...doc,cedula:'4.762.649-3'}, p={...plan,cedula:"47626493'"};
+  const filas=core.comparar([d],[p]);
+  assert.equal(filas.length,1,'quedo una fila de mas: '+JSON.stringify(filas.map(f=>f.obs)));
+  assert.doesNotMatch(filas[0].obs,/n\u00famero distinto|sin n\u00famero coincidente/);
+});
+test('la puntuacion que deja el escaneo no cambia el numero',()=>{
+  ['4.762.649-3','4 762 649 3',"47626493'",'47626493\u00b4','4/762/649/3','4_762_649_3'].forEach(function(x){
+    assert.equal(core.numero(x),'47626493',x);
+  });
+});
 test('preserva letras y ceros, sin confundir O y 0',()=>{assert.equal(core.numero('AB 001.234-5'),'AB0012345');assert.notEqual(core.numero('O123'),core.numero('0123'));});
 test('JSON truncado no se convierte en []',()=>assert.throws(()=>extra.parsear('[{"cedula":"123')));
 test('objeto válido se valida sin perder campos',()=>assert.equal(extra.validar({registros:[doc],lectura_completa:true,advertencias:[]}).lectura_completa,true));
