@@ -154,7 +154,10 @@
           throw new Error('La cantidad de filas leídas no coincide con la cuadrícula. Revisar el original.');
         if(parte.esperados&&r.registros.length!==parte.esperados)
           throw new Error('Cantidad de documentos inesperada. Revisar el recorte.');
-        r.registros.forEach(function(d,j){d._parte=etiqueta;d._registro=j+1;});
+        // Queda marcado en el registro, no solo en la pagina: el cotejo tiene
+        // que poder senalar la fila que no se pudo confirmar sin ensuciar las
+        // que si se confirmaron.
+        r.registros.forEach(function(d,j){d._parte=etiqueta;d._registro=j+1;if(!r.lectura_completa)d._incompleto=true;});
         return {regs:r.registros,completa:!!r.lectura_completa,
                 avisos:(r.advertencias||[]).map(function(t){return etiqueta+': '+t;})};
       }catch(e){
@@ -200,6 +203,7 @@
         var m=await leerVarias(ms,etiqueta,'.',nivel+1);
         if(!m.regs.length)return null;
         var antes=m.regs.length;m.regs=sinDuplicados(m.regs);
+        m.regs.forEach(function(x){x._incompleto=true;});
         // Sin cuadrícula no hay forma de confirmar que estén todas las filas, y
         // el solape pudo repetir alguna: esto se revisa contra el original.
         m.completa=false;
@@ -215,6 +219,7 @@
         var d=await leerParte(copia,etiqueta,nivel+1);
         if(!d.regs.length)return null;
         d.completa=false;
+        d.regs.forEach(function(x){x._incompleto=true;});
         d.avisos=[etiqueta+': no se pudo tomar la respuesta entera ('+causa.message+'); se reintentó con la imagen reducida. Verificar los datos de esta parte.'].concat(d.avisos);
         return d;
       }

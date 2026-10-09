@@ -17,8 +17,17 @@ test('residente extranjero con CI uruguaya no cambia tipo por nacionalidad',()=>
 test('dos documentos con mismo número son ambiguos',()=>assert.match(core.comparar([doc,{...doc,nombre:'OTRA'}],[plan])[0].obs,/Varios documentos/));
 test('visitas repetidas incluso idénticas se conservan',()=>assert.equal(core.comparar([doc],[plan,{...plan}]).length,2));
 test('documento sin número no desaparece',()=>assert.equal(core.comparar([{...doc,cedula:''}],[]).length,1));
-test('lectura parcial impide OK',()=>assert.equal(run({},{},{completa:false}).estado,'warn'));
+test('el carné uruguayo no se toma por extranjero',()=>{const r=run({pais_documento:'REPÚBLICA ORIENTAL DEL URUGUAY'});assert.equal(r.estado,'ok');assert.doesNotMatch(r.obs,/emitido en/);});
+test('un documento extranjero sí se marca',()=>assert.match(run({pais_documento:'REPÚBLICA ARGENTINA'}).obs,/emitido en/));
+test('el dígito verificador se controla en el carné uruguayo',()=>assert.match(run({pais_documento:'REPÚBLICA ORIENTAL DEL URUGUAY',cedula:'12345673'},{cedula:'12345673'}).obs,/dígito verificador/));
+test('una parte sin confirmar solo ensucia su propio registro',()=>{
+  const sucio={...doc,cedula:'23456784',_incompleto:true}, limpio=doc;
+  const pSucio={...plan,cedula:'23456784'}, filas=core.comparar([limpio,sucio],[plan,pSucio],{completa:false});
+  assert.equal(filas.find(f=>f.cedula===core.numero(doc.cedula)).estado,'ok');
+  assert.match(filas.find(f=>f.cedula==='23456784').obs,/Lectura incompleta en este registro/);
+});
 test('lectura parcial no afirma ausencia de planilla',()=>assert.equal(core.comparar([doc],[],{completa:false})[0].estado,'warn'));
+test('lectura parcial no afirma ausencia de documento',()=>assert.match(core.comparar([],[plan],{completa:false})[0].obs,/no se puede confirmar si se presentó/));
 test('número distinto con nombre compatible pide revisar',()=>assert.match(run({cedula:'23456789'}).obs,/número distinto/));
 test('preserva letras y ceros, sin confundir O y 0',()=>{assert.equal(core.numero('AB 001.234-5'),'AB0012345');assert.notEqual(core.numero('O123'),core.numero('0123'));});
 test('JSON truncado no se convierte en []',()=>assert.throws(()=>extra.parsear('[{"cedula":"123')));
