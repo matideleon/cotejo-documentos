@@ -25,6 +25,11 @@
     var d=new Date(s+'T12:00:00Z');
     return Number.isFinite(d.getTime()) && d.toISOString().slice(0,10)===s ? s : '';
   }
+  // El carne uruguayo dice "REPUBLICA ORIENTAL DEL URUGUAY", no "URUGUAY".
+  // Comparar la cadena entera marcaba como extranjero a todos los documentos
+  // uruguayos y, peor, saltaba el control del digito verificador en todos
+  // ellos, que es justo el que atrapa un numero mal leido o inventado.
+  function esUruguay(t) { return t==='URUGUAY'||t==='URUGUAYA'||t==='URUGUAYO'||t==='ROU'||t==='URY'||t==='UY'; }
   function ciValida(v) {
     var s=numero(v); if(!/^\d{7,8}$/.test(s)) return false;
     s=s.padStart(8,'0'); var coef=[2,9,8,7,6,3,4], sum=0;
@@ -55,7 +60,7 @@
             add(k==='apellido' && distancia(a,b)<=Math.min(2,Math.floor(a.length/4))?'warn':'error',k.toUpperCase()+' DIFERENTE — documento: '+d[k]);
           }
         });
-        var pais=palabras(d.pais_documento).join(' '), extranjero=pais && pais!=='URUGUAY';
+        var emisor=palabras(d.pais_documento), extranjero=emisor.length && !emisor.some(esUruguay);
         // Nacionalidad y país emisor son distintos: un residente extranjero puede tener CI uruguaya.
         if(extranjero) add('warn','Documento emitido en '+d.pais_documento+': revisar tipo y número.');
         if(!extranjero && !ciValida(ci)) add('warn','Número leído con dígito verificador inválido: revisar el original, sin corregir dígitos automáticamente.');
@@ -63,22 +68,39 @@
         if(nacP && nacD && nacP!==nacD) add('error','FECHA DE NACIMIENTO DIFERENTE — planilla: '+nacP+'; documento: '+nacD);
         else if(!nacP || !nacD) add('warn','Fecha de nacimiento sin verificar: falta o no es válida en una fuente.');
         var sP=String(p.sexo||'').toUpperCase(), sD=String(d.sexo||'').toUpperCase();
+        // Una diferencia de sexo es una señal fuerte y queda en error. Que una
+        // fuente no lo traiga es otra cosa: los frentes de cédula no imprimen
+        // sexo, así que esto saltaba en el 100% de las filas y ninguna podía
+        // quedar OK. Va como nota: se muestra, pero no baja el estado, porque
+        // no es una discrepancia y su ausencia no esconde ninguno de los
+        // riesgos que el cotejo existe para encontrar.
         if(/^[MF]$/.test(sP)&&/^[MF]$/.test(sD)) { if(sP!==sD) add('error','Sexo diferente — planilla: '+sP+'; documento: '+sD); }
-        else add('warn','Sexo sin verificar: no consta o no se lee en una fuente.');
+        else add('nota','Sexo sin verificar: no consta o no se lee en una fuente.');
         var venc=fecha(d.vencimiento), ingreso=fecha(p.fecha);
         if(venc && venc<(ingreso||hoy)) add('error','DOCUMENTO VENCIDO el '+venc+(ingreso?' al ingreso del '+ingreso:' a la fecha actual'));
         if(!venc && d.sin_vencimiento!==true) add('warn','Vencimiento sin verificar.');
         if(!ingreso) add('warn','Fecha de ingreso faltante o inválida.');
       }
-      if(!completa) add('warn','Lectura incompleta: cotejo pendiente de revisión.');
-      f.estado=h.some(function(x){return x[0]==='error';})?'error':h.some(function(x){return x[0]==='warn';})?'warn':h.length?'nd':'ok';
+      // Por registro, no para todo el cotejo: un campo ilegible en un documento
+      // no vuelve dudosas las otras veinticuatro filas. Si lo hiciera, todo
+      // queda en "revisar" y el operador pierde cuales mirar de verdad. La
+      // bandera global se sigue usando donde si corresponde: mas arriba, para
+      // no afirmar que un documento FALTA cuando puede estar en una parte que
+      // no se pudo leer.
+      if(p._incompleto || (d && d._incompleto)) add('warn','Lectura incompleta en este registro: pendiente de revisión.');
+      // 'nota' se muestra en la observacion pero no baja el estado. Todo lo
+      // demas si: una ausencia que puede esconder un riesgo --vencimiento sin
+      // leer esconde un documento vencido, nacimiento sin leer esconde un
+      // menor, nombre sin leer es la identidad misma-- sigue siendo aviso.
+      function hay(nivel){ return h.some(function(x){ return x[0]===nivel; }); }
+      f.estado=hay('error')?'error':hay('warn')?'warn':hay('nd')?'nd':'ok';
       f.obs=h.map(function(x){return x[1];}).join(' · '); out.push(f);
     });
     docs.forEach(function(d) {
       if(usados.has(d)) return;
       var ci=numero(d.cedula);
       out.push({_p:null,_d:d,fecha:'',hora:'',cedula:ci,nombre:d.nombre||'',apellido:d.apellido||'',sexo:d.sexo||'',fnac:d.fnac||'',
-        estado:completa&&ci&&ciValida(ci)?'error':'warn',obs:!ci?'Documento sin número legible: completar desde el original.':completa?'Documento sin número coincidente en la planilla.':'Lectura incompleta: no se puede confirmar si este documento figura en la planilla.'});
+        estado:completa&&!d._incompleto&&ci&&ciValida(ci)?'error':'warn',obs:!ci?'Documento sin número legible: completar desde el original.':completa?'Documento sin número coincidente en la planilla.':'Lectura incompleta: no se puede confirmar si este documento figura en la planilla.'});
     });
     return out;
   }
