@@ -4,7 +4,14 @@
   else root.CotejoCore = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function() {
   'use strict';
-  function numero(v) { return String(v == null ? '' : v).normalize('NFKC').toUpperCase().replace(/[\s.\-]/g, ''); }
+  // Se saca la puntuacion con la que se escribe un numero y la que deja el
+  // escaneo: una comilla pegada a la cedula alcanzaba para que la misma
+  // persona apareciera dos veces, una pidiendo revisar y otra como documento
+  // sin fila en la planilla. Ninguna cedula lleva estos signos, asi que no
+  // puede juntar dos numeros que de verdad sean distintos. Letras y ceros se
+  // conservan: ahi si la diferencia es el dato. Entran tambien las marcas
+  // combinantes, porque NFKC deja un acento suelto (´) como marca sin letra.
+  function numero(v) { return String(v == null ? '' : v).normalize('NFKC').toUpperCase().replace(/[\s.\-'\u2019\u2018\u00b4`"\u201c\u201d_/\\\u0300-\u036f]/g, ''); }
   function palabras(v) { return String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z\s'-]/g, '').trim().split(/[\s'-]+/).filter(Boolean); }
   function compatibles(a, b) {
     var A = palabras(a), B = palabras(b);
@@ -39,7 +46,6 @@
   function comparar(docs, plan, opciones) {
     opciones=opciones||{};
     var completa=opciones.completa!==false, usados=new Set(), out=[];
-    var hoy=opciones.hoy || new Intl.DateTimeFormat('sv-SE',{timeZone:'America/Montevideo'}).format(new Date());
     plan.forEach(function(p) {
       var ci=numero(p.cedula), candidatos=docs.filter(function(d) { return ci && numero(d.cedula)===ci; });
       var d=candidatos.length===1?candidatos[0]:null, h=[];
@@ -67,19 +73,16 @@
         var nacP=fecha(p.fnac), nacD=fecha(d.fnac);
         if(nacP && nacD && nacP!==nacD) add('error','FECHA DE NACIMIENTO DIFERENTE — planilla: '+nacP+'; documento: '+nacD);
         else if(!nacP || !nacD) add('warn','Fecha de nacimiento sin verificar: falta o no es válida en una fuente.');
+        // La sala no coteja el sexo: la columna se saco de la tabla y que una
+        // fuente no lo traiga no se reporta. Una diferencia si se reporta,
+        // porque no habla del sexo sino de que el documento podria no ser de
+        // la persona de la fila.
         var sP=String(p.sexo||'').toUpperCase(), sD=String(d.sexo||'').toUpperCase();
-        // Una diferencia de sexo es una señal fuerte y queda en error. Que una
-        // fuente no lo traiga es otra cosa: los frentes de cédula no imprimen
-        // sexo, así que esto saltaba en el 100% de las filas y ninguna podía
-        // quedar OK. Va como nota: se muestra, pero no baja el estado, porque
-        // no es una discrepancia y su ausencia no esconde ninguno de los
-        // riesgos que el cotejo existe para encontrar.
-        if(/^[MF]$/.test(sP)&&/^[MF]$/.test(sD)) { if(sP!==sD) add('error','Sexo diferente — planilla: '+sP+'; documento: '+sD); }
-        else add('nota','Sexo sin verificar: no consta o no se lee en una fuente.');
-        var venc=fecha(d.vencimiento), ingreso=fecha(p.fecha);
-        if(venc && venc<(ingreso||hoy)) add('error','DOCUMENTO VENCIDO el '+venc+(ingreso?' al ingreso del '+ingreso:' a la fecha actual'));
-        if(!venc && d.sin_vencimiento!==true) add('warn','Vencimiento sin verificar.');
-        if(!ingreso) add('warn','Fecha de ingreso faltante o inválida.');
+        if(/^[MF]$/.test(sP)&&/^[MF]$/.test(sD)&&sP!==sD) add('error','Sexo diferente — planilla: '+sP+'; documento: '+sD);
+        // La vigencia del documento tampoco se coteja, por decision de la sala.
+        // El vencimiento se sigue extrayendo y viaja en los datos, asi que
+        // volver a mirarlo es una regla, no una relectura.
+        if(!fecha(p.fecha)) add('warn','Fecha de ingreso faltante o inválida.');
       }
       // Por registro, no para todo el cotejo: un campo ilegible en un documento
       // no vuelve dudosas las otras veinticuatro filas. Si lo hiciera, todo

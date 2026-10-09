@@ -220,13 +220,14 @@ textarea.paste{width:100%;min-height:170px;background:var(--sur2);border:1px sol
   </div>
 </div></div>
 
+<div style="text-align:center;opacity:.35;font:11px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;padding:.8rem 0">cotejo <span class="version">ve01ae5f2</span></div>
 <div class="toast" id="toast"></div>
 
 <script src="vendor/pdf.min.js"></script>
-<script src="extraccion.js"></script>
-<script src="servidor.js"></script>
-<script src="cotejo-core.js"></script>
-<script src="lectura-imagenes.js"></script>
+<script src="extraccion.js?v=e01ae5f2"></script>
+<script src="servidor.js?v=e01ae5f2"></script>
+<script src="cotejo-core.js?v=e01ae5f2"></script>
+<script src="lectura-imagenes.js?v=e01ae5f2"></script>
 <script>
 if (window.pdfjsLib) { pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js"; }
 // ───── ESTADO ─────
@@ -643,7 +644,7 @@ function render(){
       return '<button class="fb" style="'+(on?"border-color:"+ac+";background:"+ac+"18;color:"+ac:"")+'" onclick="setFiltro(\''+f[0]+'\')">'+f[1]+'<span class="fc">'+f[2]+'</span></button>';
     }).join("");
 
-  document.getElementById("thead").innerHTML = [["#",null],["Hora","hora"],["Cedula","cedula"],["Nombre y Apellido","nombre"],["Sexo","sexo"],["F. Nac.","fnac"],["Estado","estado"],["Observacion",null],["",null]]
+  document.getElementById("thead").innerHTML = [["#",null],["Hora","hora"],["Cedula","cedula"],["Nombre y Apellido","nombre"],["F. Nac.","fnac"],["Estado","estado"],["Observacion",null],["",null]]
     .map(function(h){ return '<th '+(h[1]?'onclick="ordenar(\''+h[1]+'\')"':"")+'>'+h[0]+(h[1]?" ↕":"")+'</th>'; }).join("");
 
   var rows = recs.filter(function(r){
@@ -662,7 +663,7 @@ function render(){
       '<td class="mono">'+(r.hora||"—")+'</td>'+
       '<td class="mono">'+fmtCI(r.cedula)+'</td>'+
       '<td class="nm"><strong>'+esc(cap(r.nombre))+' '+esc(cap(r.apellido))+'</strong><span>'+esc(r.fecha||"")+'</span></td>'+
-      '<td>'+(r.sexo||"—")+'</td><td class="mono">'+(r.fnac||"—")+'</td>'+
+      '<td class="mono">'+(r.fnac||"—")+'</td>'+
       '<td><span class="pill '+p[1]+'">'+p[0]+'</span></td>'+
       '<td><div class="obs '+oc+'">'+esc(r.obs||"—")+'</div></td>'+
       '<td><div class="racts"><button class="rab" onclick="abrirEdit(\''+r.id+'\')">✎</button><button class="rab del" onclick="borrar(\''+r.id+'\')">✕</button></div></td></tr>';

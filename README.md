@@ -52,20 +52,25 @@ avisada para revisar contra el original.
 
 ## Reglas
 
-- Coincidencia por número, conservando ceros y letras; solo se quitan espacios,
-  puntos y guiones. No se adivinan dígitos para validar una CI.
+- Coincidencia por número, conservando ceros y letras. Se quita la puntuación con
+  la que se escribe un número y la que deja el escaneo —espacios, puntos, guiones,
+  comillas, barras, guiones bajos y acentos sueltos—: una comilla pegada a la
+  cédula alcanzaba para que la misma persona apareciera en dos filas. Ninguna
+  cédula lleva esos signos, así que no puede juntar dos números distintos. No se
+  adivinan dígitos para validar una CI.
 - Se comparan nombres, apellidos y nacimiento. Tildes y mayúsculas no importan;
   primer nombre/apellido se acepta solo como palabra completa.
-- Sexo se compara solo cuando aparece explícitamente en ambas fuentes. No se
-  infiere por nombre o retrato. Una diferencia es **error**; que una fuente no lo
-  traiga se anota como **sin verificar** pero no baja el estado de la fila: los
-  frentes de cédula no imprimen sexo, así que lo contrario dejaba el 100% de las
-  filas en aviso y ninguna podía quedar OK.
-- **OK significa «no se encontró ninguna discrepancia», no «todo verificado».** El
-  recorte de la regla anterior vale solo para el sexo. Una ausencia que puede
-  esconder un riesgo sigue siendo aviso: un vencimiento que no se leyó esconde un
-  documento vencido, un nacimiento que no se leyó esconde un menor, y un nombre o
-  apellido ilegible es la identidad misma.
+- **Sexo y vigencia del documento no se cotejan**, por decisión de la sala. La
+  columna de sexo no está en la tabla, que una fuente no lo traiga no se reporta,
+  y un documento vencido tampoco. Los dos campos se siguen extrayendo y viajan en
+  los datos, así que volver a mirarlos es cambiar una regla, no volver a leer los
+  papeles. La única excepción: un sexo **diferente** entre planilla y documento
+  sigue siendo error, porque no habla del sexo sino de que el documento podría no
+  ser de la persona de esa fila.
+- **OK significa «no se encontró ninguna discrepancia», no «todo verificado».** Lo
+  que sí baja la fila es una ausencia que puede esconder un riesgo: un nacimiento
+  que no se leyó esconde un menor, y un nombre o apellido ilegible es la identidad
+  misma.
 - El emisor se reconoce por palabra (`URUGUAY`, `ROU`, `URY`, `UY`), no por la
   cadena entera: el carné dice «REPÚBLICA ORIENTAL DEL URUGUAY». Compararla
   completa marcaba todos los documentos uruguayos como extranjeros y, peor,
@@ -73,8 +78,6 @@ avisada para revisar contra el original.
 - La lectura incompleta se mira **por registro**: un campo ilegible en un
   documento no vuelve dudosas las demás filas. La bandera global se usa solo para
   no afirmar que algo **falta** cuando puede estar en una parte que no se leyó.
-- El vencimiento se verifica a la fecha de ingreso, o a la fecha actual de
-  Montevideo si falta el ingreso (en ese caso se agrega un aviso).
 - Nacionalidad y país emisor son campos diferentes. Tener nacionalidad extranjera
   no convierte una CI uruguaya en un documento extranjero.
 - Dos documentos con igual número son ambiguos: no se elige el primero.
@@ -88,6 +91,17 @@ avisada para revisar contra el original.
 La página es estática y la clave del proveedor vive en un servidor aparte, porque
 el operador de la sala no tiene que manejar ninguna clave de API. Son dos piezas
 independientes y cada una se publica donde conviene.
+
+**Versión de la página.** Cada `<script>` de la app lleva `?v=<hash>` y el pie
+muestra esa misma versión. GitHub Pages sirve los `.js` con caché de minutos, así
+que sin eso un refresh normal trae el HTML nuevo con los scripts viejos: la app
+queda en un estado mezclado que no es ninguna de las dos versiones, y corre
+reglas distintas de las que uno cree. El hash sale del contenido y del nombre de
+`extraccion.js`, `servidor.js`, `cotejo-core.js` y `lectura-imagenes.js`, así que
+cambia solo cuando cambia el código. Después de tocar cualquiera de esos
+archivos: `node herramientas/version.mjs`. `npm test` corre lo mismo con
+`--revisar` y falla si quedaron sin sellar, de modo que no se publica en
+silencio. Para saber qué versión está viva, mirar el pie de la página.
 
 **Página (GitHub Pages).** Settings → Pages → Source: *Deploy from a branch*,
 rama `main`, carpeta `/ (root)`. No hace falta build ni workflow: los HTML y
