@@ -201,8 +201,8 @@ textarea.paste{width:100%;min-height:170px;background:var(--sur2);border:1px sol
 <div class="ov" id="pegarOv"><div class="modal" style="max-width:660px">
   <div class="mh"><div class="mt">📋 Pegar datos CSV</div><button class="mc" onclick="cerrarPegar()">✕</button></div>
   <div class="mb">
-    <div style="font-size:.74rem;color:var(--txtD);margin-bottom:.8rem;line-height:1.6">Pega un CSV con las columnas: Fecha, Hora, Cedula, Nombre, Apellido, Sexo, F.Nacimiento, Estado, Observacion.</div>
-    <textarea class="paste" id="pasteTxt" placeholder="#,Fecha,Hora,Cedula,Nombre,Apellido,Sexo,F.Nacimiento,Estado,Observacion"></textarea>
+    <div style="font-size:.74rem;color:var(--txtD);margin-bottom:.8rem;line-height:1.6">Pega un CSV con las columnas: Fecha, Hora, Cedula, Nombre, Apellido, F.Nacimiento, Estado, Observacion.</div>
+    <textarea class="paste" id="pasteTxt" placeholder="#,Fecha,Hora,Cedula,Nombre,Apellido,F.Nacimiento,Estado,Observacion"></textarea>
     <div id="pastePrev" style="margin-top:.7rem;font-size:.7rem;font-family:var(--mono);color:var(--grn)"></div>
   </div>
   <div class="mf" style="justify-content:flex-end">
@@ -220,13 +220,14 @@ textarea.paste{width:100%;min-height:170px;background:var(--sur2);border:1px sol
   </div>
 </div></div>
 
+<div style="text-align:center;opacity:.35;font:11px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;padding:.8rem 0">cotejo <span class="version">vdc5a7786</span></div>
 <div class="toast" id="toast"></div>
 
 <script src="vendor/pdf.min.js"></script>
-<script src="extraccion.js"></script>
-<script src="servidor.js"></script>
-<script src="cotejo-core.js"></script>
-<script src="lectura-imagenes.js"></script>
+<script src="extraccion.js?v=dc5a7786"></script>
+<script src="servidor.js?v=dc5a7786"></script>
+<script src="cotejo-core.js?v=dc5a7786"></script>
+<script src="lectura-imagenes.js?v=dc5a7786"></script>
 <script>
 if (window.pdfjsLib) { pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js"; }
 // ───── ESTADO ─────
@@ -532,7 +533,6 @@ function renderResultados(){
         '<div class="rc-f"><div class="rc-l">Nombre</div><input class="rc-i" value="'+esc(r.nombre)+'" onchange="updR('+i+',\'nombre\',this.value)"></div>'+
         '<div class="rc-f"><div class="rc-l">Apellido</div><input class="rc-i" value="'+esc(r.apellido)+'" onchange="updR('+i+',\'apellido\',this.value)"></div>'+
         '<div class="rc-f"><div class="rc-l">Cedula</div><input class="rc-i" value="'+esc(r.cedula)+'" onchange="updR('+i+',\'cedula\',this.value)"></div>'+
-        '<div class="rc-f"><div class="rc-l">Sexo</div><select class="rc-sel" onchange="updR('+i+',\'sexo\',this.value)"><option value=""'+(!r.sexo?" selected":"")+'>—</option><option value="F"'+(r.sexo==="F"?" selected":"")+'>F</option><option value="M"'+(r.sexo==="M"?" selected":"")+'>M</option></select></div>'+
         '<div class="rc-f"><div class="rc-l">Estado</div><select class="rc-sel" style="color:'+col+'" onchange="updR('+i+',\'estado\',this.value);renderResultados()"><option value="ok"'+(r.estado==="ok"?" selected":"")+'>✓ OK</option><option value="error"'+(r.estado==="error"?" selected":"")+'>✗ Error</option><option value="warn"'+(r.estado==="warn"?" selected":"")+'>⚠ Aviso</option><option value="nd"'+(r.estado==="nd"?" selected":"")+'>? N/D</option></select></div>'+
         '<div style="display:flex;align-items:center;justify-content:center"><input type="checkbox" '+(r._on?"checked":"")+' onchange="togUno('+i+',this.checked)" style="width:16px;height:16px;accent-color:var(--cyan)"></div>'+
         '</div>'+
@@ -553,7 +553,7 @@ function togTodos(v){ ses.resultados.forEach(function(r){ r._on=v; }); renderRes
 function importarSel(){
   var sel = ses.resultados.filter(function(r){return r._on;});
   if(!sel.length){ toast("Selecciona al menos un registro","error"); return; }
-  sel.forEach(function(r){ recs.push({ id:uid(), fecha:r.fecha, hora:r.hora, cedula:r.cedula, nombre:r.nombre, apellido:r.apellido, sexo:r.sexo, fnac:r.fnac, estado:r.estado, obs:r.obs }); });
+  sel.forEach(function(r){ recs.push({ id:uid(), fecha:r.fecha, hora:r.hora, cedula:r.cedula, nombre:r.nombre, apellido:r.apellido, fnac:r.fnac, estado:r.estado, obs:r.obs }); });
   cerrarCotejo(); render(); toast("✓ "+sel.length+" registro(s) cargado(s)","ok");
 }
 
@@ -577,7 +577,7 @@ function parseCSV(texto){
   }
   var h = split(lines[0]).map(function(x){ return x.toLowerCase().replace(/[.\s]/g,""); });
   function idx(keys){ for(var k=0;k<keys.length;k++){ for(var i=0;i<h.length;i++){ if(h[i].indexOf(keys[k])>=0) return i; } } return -1; }
-  var M={fecha:idx(["fecha"]),hora:idx(["hora"]),cedula:idx(["cedula","ci"]),nombre:idx(["nombre"]),apellido:idx(["apellido"]),sexo:idx(["sexo"]),fnac:idx(["nacimiento","fnac"]),estado:idx(["estado"]),obs:idx(["observ","obs"])};
+  var M={fecha:idx(["fecha"]),hora:idx(["hora"]),cedula:idx(["cedula","ci"]),nombre:idx(["nombre"]),apellido:idx(["apellido"]),fnac:idx(["nacimiento","fnac"]),estado:idx(["estado"]),obs:idx(["observ","obs"])};
   var out=[];
   for(var i=1;i<lines.length;i++){
     var c=split(lines[i]);
@@ -585,7 +585,7 @@ function parseCSV(texto){
     if(!g("nombre") && !g("cedula")) continue;
     var e=(g("estado")||"").toLowerCase();
     var est = e.indexOf("ok")===0?"ok" : e.indexOf("error")===0?"error" : (e.indexOf("warn")===0||e.indexOf("aviso")===0)?"warn" : "nd";
-    out.push({ id:uid(), fecha:g("fecha"), hora:g("hora"), cedula:g("cedula").replace(/\D/g,""), nombre:g("nombre"), apellido:g("apellido"), sexo:g("sexo").toUpperCase(), fnac:g("fnac"), estado:est, obs:g("obs") });
+    out.push({ id:uid(), fecha:g("fecha"), hora:g("hora"), cedula:g("cedula").replace(/\D/g,""), nombre:g("nombre"), apellido:g("apellido"), fnac:g("fnac"), estado:est, obs:g("obs") });
   }
   return out;
 }
@@ -601,14 +601,14 @@ function abrirEdit(id){
   var r = id ? recs.filter(function(x){return x.id==id;})[0] : null;
   var now = new Date();
   var f = { fecha:(r&&r.fecha)||now.toISOString().slice(0,10), hora:(r&&r.hora)||now.toTimeString().slice(0,8),
-    cedula:(r&&r.cedula)||"", nombre:(r&&r.nombre)||"", apellido:(r&&r.apellido)||"", sexo:(r&&r.sexo)||"F",
+    cedula:(r&&r.cedula)||"", nombre:(r&&r.nombre)||"", apellido:(r&&r.apellido)||"",
     fnac:(r&&r.fnac)||"", estado:(r&&r.estado)||"nd", obs:(r&&r.obs)||"" };
   function campo(l,id2,t,v,extra){ return '<div><div class="rc-l" style="margin-bottom:.25rem">'+l+'</div><input class="rc-i" style="padding:.46rem .6rem;font-size:.75rem" id="'+id2+'" type="'+t+'" value="'+esc(v)+'" '+(extra||"")+'></div>'; }
   function sele(l,id2,opts,v){ return '<div><div class="rc-l" style="margin-bottom:.25rem">'+l+'</div><select class="rc-sel" style="padding:.46rem .6rem;font-size:.75rem" id="'+id2+'">'+opts.map(function(o){ return '<option value="'+o[0]+'"'+(o[0]===v?" selected":"")+'>'+o[1]+'</option>'; }).join("")+'</select></div>'; }
   document.getElementById("editTitle").textContent = id ? "Editar registro" : "Agregar registro";
   document.getElementById("editBody").innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:.65rem">'+
     campo("Fecha","ef-fecha","date",f.fecha)+campo("Hora","ef-hora","time",f.hora,'step="1"')+
-    campo("Cedula","ef-cedula","text",f.cedula)+sele("Sexo","ef-sexo",[["F","F — Femenino"],["M","M — Masculino"]],f.sexo)+
+    campo("Cedula","ef-cedula","text",f.cedula)+
     campo("Nombre","ef-nombre","text",f.nombre)+campo("Apellido","ef-apellido","text",f.apellido)+
     campo("F. Nacimiento","ef-fnac","text",f.fnac)+
     sele("Estado","ef-estado",[["nd","? No verificado"],["ok","✓ OK"],["error","✗ Error"],["warn","⚠ Aviso"]],f.estado)+
@@ -620,7 +620,7 @@ document.getElementById("editOv").addEventListener("click", function(e){ if(e.ta
 function guardarEdit(){
   function g(i){ return document.getElementById(i).value; }
   var r = { fecha:g("ef-fecha"), hora:g("ef-hora"), cedula:g("ef-cedula").replace(/\D/g,""), nombre:g("ef-nombre").trim(),
-    apellido:g("ef-apellido").trim(), sexo:g("ef-sexo"), fnac:g("ef-fnac"), estado:g("ef-estado"), obs:g("ef-obs").trim() };
+    apellido:g("ef-apellido").trim(), fnac:g("ef-fnac"), estado:g("ef-estado"), obs:g("ef-obs").trim() };
   if(!r.nombre || !r.cedula){ toast("Nombre y cedula son obligatorios","error"); return; }
   if(editId){ for(var i=0;i<recs.length;i++){ if(recs[i].id==editId){ for(var k in r) recs[i][k]=r[k]; } } toast("Actualizado","ok"); }
   else { r.id=uid(); recs.push(r); toast("Agregado","ok"); }
@@ -643,7 +643,7 @@ function render(){
       return '<button class="fb" style="'+(on?"border-color:"+ac+";background:"+ac+"18;color:"+ac:"")+'" onclick="setFiltro(\''+f[0]+'\')">'+f[1]+'<span class="fc">'+f[2]+'</span></button>';
     }).join("");
 
-  document.getElementById("thead").innerHTML = [["#",null],["Hora","hora"],["Cedula","cedula"],["Nombre y Apellido","nombre"],["Sexo","sexo"],["F. Nac.","fnac"],["Estado","estado"],["Observacion",null],["",null]]
+  document.getElementById("thead").innerHTML = [["#",null],["Hora","hora"],["Cedula","cedula"],["Nombre y Apellido","nombre"],["F. Nac.","fnac"],["Estado","estado"],["Observacion",null],["",null]]
     .map(function(h){ return '<th '+(h[1]?'onclick="ordenar(\''+h[1]+'\')"':"")+'>'+h[0]+(h[1]?" ↕":"")+'</th>'; }).join("");
 
   var rows = recs.filter(function(r){
@@ -662,7 +662,7 @@ function render(){
       '<td class="mono">'+(r.hora||"—")+'</td>'+
       '<td class="mono">'+fmtCI(r.cedula)+'</td>'+
       '<td class="nm"><strong>'+esc(cap(r.nombre))+' '+esc(cap(r.apellido))+'</strong><span>'+esc(r.fecha||"")+'</span></td>'+
-      '<td>'+(r.sexo||"—")+'</td><td class="mono">'+(r.fnac||"—")+'</td>'+
+      '<td class="mono">'+(r.fnac||"—")+'</td>'+
       '<td><span class="pill '+p[1]+'">'+p[0]+'</span></td>'+
       '<td><div class="obs '+oc+'">'+esc(r.obs||"—")+'</div></td>'+
       '<td><div class="racts"><button class="rab" onclick="abrirEdit(\''+r.id+'\')">✎</button><button class="rab del" onclick="borrar(\''+r.id+'\')">✕</button></div></td></tr>';
@@ -681,8 +681,8 @@ function limpiarTodo(){ if(!confirm("¿Limpiar todos los registros?")) return; r
 // ───── EXPORT ─────
 function exportarCSV(){
   if(!recs.length){ toast("Sin registros","error"); return; }
-  var h=["#","Fecha","Hora","Cedula","Nombre","Apellido","Sexo","F.Nacimiento","Estado","Observacion"];
-  var rows=recs.map(function(r,i){ return [i+1,r.fecha,r.hora,r.cedula,r.nombre,r.apellido,r.sexo,r.fnac,(r.estado||"").toUpperCase(),'"'+(r.obs||"").replace(/"/g,"'")+'"']; });
+  var h=["#","Fecha","Hora","Cedula","Nombre","Apellido","F.Nacimiento","Estado","Observacion"];
+  var rows=recs.map(function(r,i){ return [i+1,r.fecha,r.hora,r.cedula,r.nombre,r.apellido,r.fnac,(r.estado||"").toUpperCase(),'"'+(r.obs||"").replace(/"/g,"'")+'"']; });
   var csv=[h.join(",")].concat(rows.map(function(r){return r.join(",");})).join("\n");
   var a=document.createElement("a");
   a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"}));

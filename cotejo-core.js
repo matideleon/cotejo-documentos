@@ -4,7 +4,14 @@
   else root.CotejoCore = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this, function() {
   'use strict';
-  function numero(v) { return String(v == null ? '' : v).normalize('NFKC').toUpperCase().replace(/[\s.\-]/g, ''); }
+  // Se saca la puntuacion con la que se escribe un numero y la que deja el
+  // escaneo: una comilla pegada a la cedula alcanzaba para que la misma
+  // persona apareciera dos veces, una pidiendo revisar y otra como documento
+  // sin fila en la planilla. Ninguna cedula lleva estos signos, asi que no
+  // puede juntar dos numeros que de verdad sean distintos. Letras y ceros se
+  // conservan: ahi si la diferencia es el dato. Entran tambien las marcas
+  // combinantes, porque NFKC deja un acento suelto (´) como marca sin letra.
+  function numero(v) { return String(v == null ? '' : v).normalize('NFKC').toUpperCase().replace(/[\s.\-'\u2019\u2018\u00b4`"\u201c\u201d_/\\\u0300-\u036f]/g, ''); }
   function palabras(v) { return String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z\s'-]/g, '').trim().split(/[\s'-]+/).filter(Boolean); }
   function compatibles(a, b) {
     var A = palabras(a), B = palabras(b);
@@ -39,11 +46,10 @@
   function comparar(docs, plan, opciones) {
     opciones=opciones||{};
     var completa=opciones.completa!==false, usados=new Set(), out=[];
-    var hoy=opciones.hoy || new Intl.DateTimeFormat('sv-SE',{timeZone:'America/Montevideo'}).format(new Date());
     plan.forEach(function(p) {
       var ci=numero(p.cedula), candidatos=docs.filter(function(d) { return ci && numero(d.cedula)===ci; });
       var d=candidatos.length===1?candidatos[0]:null, h=[];
-      var f={_p:p,_d:d,fecha:p.fecha||'',hora:p.hora||'',cedula:ci,nombre:p.nombre||'',apellido:p.apellido||'',sexo:p.sexo||'',fnac:p.fnac||''};
+      var f={_p:p,_d:d,fecha:p.fecha||'',hora:p.hora||'',cedula:ci,nombre:p.nombre||'',apellido:p.apellido||'',fnac:p.fnac||''};
       candidatos.forEach(function(c) { usados.add(c); });
       function add(s,t) { h.push([s,t]); }
       if(candidatos.length>1) add('warn','Varios documentos tienen este número. Revisar cuál corresponde; no se eligió uno automáticamente.');
@@ -67,19 +73,10 @@
         var nacP=fecha(p.fnac), nacD=fecha(d.fnac);
         if(nacP && nacD && nacP!==nacD) add('error','FECHA DE NACIMIENTO DIFERENTE — planilla: '+nacP+'; documento: '+nacD);
         else if(!nacP || !nacD) add('warn','Fecha de nacimiento sin verificar: falta o no es válida en una fuente.');
-        var sP=String(p.sexo||'').toUpperCase(), sD=String(d.sexo||'').toUpperCase();
-        // Una diferencia de sexo es una señal fuerte y queda en error. Que una
-        // fuente no lo traiga es otra cosa: los frentes de cédula no imprimen
-        // sexo, así que esto saltaba en el 100% de las filas y ninguna podía
-        // quedar OK. Va como nota: se muestra, pero no baja el estado, porque
-        // no es una discrepancia y su ausencia no esconde ninguno de los
-        // riesgos que el cotejo existe para encontrar.
-        if(/^[MF]$/.test(sP)&&/^[MF]$/.test(sD)) { if(sP!==sD) add('error','Sexo diferente — planilla: '+sP+'; documento: '+sD); }
-        else add('nota','Sexo sin verificar: no consta o no se lee en una fuente.');
-        var venc=fecha(d.vencimiento), ingreso=fecha(p.fecha);
-        if(venc && venc<(ingreso||hoy)) add('error','DOCUMENTO VENCIDO el '+venc+(ingreso?' al ingreso del '+ingreso:' a la fecha actual'));
-        if(!venc && d.sin_vencimiento!==true) add('warn','Vencimiento sin verificar.');
-        if(!ingreso) add('warn','Fecha de ingreso faltante o inválida.');
+        // Ni el sexo ni la vigencia del documento se cotejan: por decision de
+        // la sala no se comparan, no se muestran y ya no se extraen. Volver a
+        // mirarlos exige releer los papeles, no solo cambiar esta regla.
+        if(!fecha(p.fecha)) add('warn','Fecha de ingreso faltante o inválida.');
       }
       // Por registro, no para todo el cotejo: un campo ilegible en un documento
       // no vuelve dudosas las otras veinticuatro filas. Si lo hiciera, todo
@@ -89,9 +86,9 @@
       // no se pudo leer.
       if(p._incompleto || (d && d._incompleto)) add('warn','Lectura incompleta en este registro: pendiente de revisión.');
       // 'nota' se muestra en la observacion pero no baja el estado. Todo lo
-      // demas si: una ausencia que puede esconder un riesgo --vencimiento sin
-      // leer esconde un documento vencido, nacimiento sin leer esconde un
-      // menor, nombre sin leer es la identidad misma-- sigue siendo aviso.
+      // demas si: una ausencia que puede esconder un riesgo --un nacimiento
+      // sin leer esconde un menor, un nombre sin leer es la identidad misma--
+      // sigue siendo aviso.
       function hay(nivel){ return h.some(function(x){ return x[0]===nivel; }); }
       f.estado=hay('error')?'error':hay('warn')?'warn':hay('nd')?'nd':'ok';
       f.obs=h.map(function(x){return x[1];}).join(' · '); out.push(f);
@@ -99,7 +96,7 @@
     docs.forEach(function(d) {
       if(usados.has(d)) return;
       var ci=numero(d.cedula);
-      out.push({_p:null,_d:d,fecha:'',hora:'',cedula:ci,nombre:d.nombre||'',apellido:d.apellido||'',sexo:d.sexo||'',fnac:d.fnac||'',
+      out.push({_p:null,_d:d,fecha:'',hora:'',cedula:ci,nombre:d.nombre||'',apellido:d.apellido||'',fnac:d.fnac||'',
         estado:completa&&!d._incompleto&&ci&&ciValida(ci)?'error':'warn',obs:!ci?'Documento sin número legible: completar desde el original.':completa?'Documento sin número coincidente en la planilla.':'Lectura incompleta: no se puede confirmar si este documento figura en la planilla.'});
     });
     return out;
