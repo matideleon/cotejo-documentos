@@ -1,8 +1,8 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const core=require('../cotejo-core.js'),extra=require('../extraccion.js');
-const doc={cedula:'12345672',nombre:'ANA MARIA',apellido:'PEREZ GOMEZ',sexo:'F',fnac:'1980-04-05',vencimiento:'2030-01-01',pais_documento:'Uruguay'};
-const plan={cedula:doc.cedula,nombre:'Ana',apellido:'Pérez',sexo:'F',fnac:doc.fnac,fecha:'2026-10-04',hora:'12:00:00'};
+const doc={cedula:'12345672',nombre:'ANA MARIA',apellido:'PEREZ GOMEZ',fnac:'1980-04-05',pais_documento:'Uruguay'};
+const plan={cedula:doc.cedula,nombre:'Ana',apellido:'Pérez',fnac:doc.fnac,fecha:'2026-10-04',hora:'12:00:00'};
 function run(d={},p={},options={}){return core.comparar([{...doc,...d}],[{...plan,...p}],options)[0];}
 test('coincidencia con nombres abreviados por palabras completas',()=>assert.equal(run().estado,'ok'));
 test('un nombre diferente nunca queda OK',()=>assert.equal(run({}, {nombre:'Lucía'}).estado,'error'));
@@ -10,13 +10,20 @@ test('prefijos parciales no acreditan apellidos',()=>assert.equal(core.compatibl
 test('apellido vacío no acredita coincidencia',()=>assert.equal(run({apellido:''}).estado,'warn'));
 test('nacimiento se coteja sin copiar fecha de ingreso',()=>assert.equal(run({}, {fnac:'1980-10-04'}).estado,'error'));
 test('fecha imposible no se compara como válida',()=>assert.equal(core.fecha('2026-02-31'),''));
-// La sala no coteja el sexo: no se reporta que falte, pero una diferencia si,
-// porque no habla del sexo sino de que el documento podria no ser de esa persona.
-test('un sexo que el documento no trae no se reporta',()=>{const r=run({sexo:''});assert.equal(r.estado,'ok');assert.doesNotMatch(r.obs,/[Ss]exo/);});
-test('un sexo diferente sigue siendo error',()=>assert.equal(run({},{sexo:'M'}).estado,'error'));
-// La vigencia tampoco se coteja: ni vencido ni sin leer dicen nada.
-test('un documento vencido ya no se reporta',()=>{const r=run({vencimiento:'2020-01-01'});assert.equal(r.estado,'ok');assert.doesNotMatch(r.obs,/VENCID/i);});
-test('un vencimiento que no se leyo ya no se reporta',()=>{const r=run({vencimiento:''});assert.equal(r.estado,'ok');assert.doesNotMatch(r.obs,/[Vv]encimiento/);});
+// Sexo y vigencia salen del sistema entero: no se piden al modelo, no se
+// comparan y no se muestran. Ni siquiera una diferencia se reporta.
+test('el sexo no se coteja ni cuando difiere',()=>{const r=run({sexo:'M'},{sexo:'F'});assert.equal(r.estado,'ok');assert.doesNotMatch(r.obs,/[Ss]exo/);});
+test('la vigencia no se coteja ni con el documento vencido',()=>{const r=run({vencimiento:'2020-01-01'});assert.equal(r.estado,'ok');assert.doesNotMatch(r.obs,/VENCID/i);});
+test('lo que devuelve el modelo ya no conserva sexo ni vencimiento',()=>{
+  const r=extra.validar({registros:[{...doc,sexo:'F',vencimiento:'2030-01-01',sin_vencimiento:true}],lectura_completa:true,advertencias:[]});
+  ['sexo','vencimiento','sin_vencimiento'].forEach(k=>assert.equal(r.registros[0][k],undefined,k+' sigue viajando en los datos'));
+});
+test('los prompts ya no piden sexo del documento ni vencimiento',()=>{
+  assert.doesNotMatch(extra.prompts.documento,/sexo|vencimiento/i);
+  // En la planilla el papel SI tiene columna Sexo: se nombra para que el modelo
+  // no corra las demas columnas, pero no entra en el JSON que devuelve.
+  assert.doesNotMatch(extra.prompts.planilla,/"sexo"/);
+});
 // El nacimiento si se sigue cotejando.
 test('un nacimiento que no se leyo sigue bajando la fila',()=>assert.equal(run({fnac:''}).estado,'warn'));
 test('residente extranjero con CI uruguaya no cambia tipo por nacionalidad',()=>assert.equal(run({nacionalidad:'COLOMBIANA'}).estado,'ok'));

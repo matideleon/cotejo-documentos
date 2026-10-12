@@ -60,13 +60,13 @@ avisada para revisar contra el original.
   adivinan dígitos para validar una CI.
 - Se comparan nombres, apellidos y nacimiento. Tildes y mayúsculas no importan;
   primer nombre/apellido se acepta solo como palabra completa.
-- **Sexo y vigencia del documento no se cotejan**, por decisión de la sala. La
-  columna de sexo no está en la tabla, que una fuente no lo traiga no se reporta,
-  y un documento vencido tampoco. Los dos campos se siguen extrayendo y viajan en
-  los datos, así que volver a mirarlos es cambiar una regla, no volver a leer los
-  papeles. La única excepción: un sexo **diferente** entre planilla y documento
-  sigue siendo error, porque no habla del sexo sino de que el documento podría no
-  ser de la persona de esa fila.
+- **Sexo y vigencia del documento están fuera del sistema**, por decisión de la
+  sala. No se piden al modelo, no se comparan, no se muestran y no salen en el
+  CSV. Ni siquiera un sexo **diferente** entre planilla y documento se reporta.
+  Volver a mirarlos exige releer los papeles, no solo cambiar una regla.
+  En el prompt de la planilla la columna Sexo se sigue **nombrando** —porque
+  existe en el papel— para que el modelo no corra las demás columnas, pero no
+  entra en lo que devuelve.
 - **OK significa «no se encontró ninguna discrepancia», no «todo verificado».** Lo
   que sí baja la fila es una ausencia que puede esconder un riesgo: un nacimiento
   que no se leyó esconde un menor, y un nombre o apellido ilegible es la identidad
@@ -179,15 +179,14 @@ Se comprobó la preparación visual y una extracción real con `gpt-5-mini` sobr
 dos juegos de PDF autorizados: 12 páginas, 70 carnés y 70 filas de planilla.
 La versión final devolvió las 70 filas, sin las siete duplicadas que aparecieron
 al enviar la página completa como contexto. Se contrastaron número, nombre,
-apellido, sexo y fechas de las planillas: un apellido quedó vacío y advertido;
+apellido y fechas de las planillas: un apellido quedó vacío y advertido;
 los demás campos de esa comparación coincidieron con el original, ignorando
 mayúsculas y tildes. Esta medición corresponde a una ejecución, no garantiza
 la precisión futura ni valida automáticamente el contenido de los documentos.
 
 La lectura de los carnés conservó los 70 registros. Se detectó un número de
 cédula mal transcrito; el cotejo lo marcó para revisión, sin corregirlo por su
-cuenta. Los frentes aportados no muestran sexo: ese campo se dejó sin verificar.
-Una interrupción local de Internet obligó a recuperar las partes fallidas durante
+cuenta. Una interrupción local de Internet obligó a recuperar las partes fallidas durante
 la validación. Las pruebas automáticas siguen usando exclusivamente datos ficticios.
 
 Archivos: `cotejo-core.js` contiene las reglas; `extraccion.js`, el contrato y los

@@ -49,7 +49,7 @@
     plan.forEach(function(p) {
       var ci=numero(p.cedula), candidatos=docs.filter(function(d) { return ci && numero(d.cedula)===ci; });
       var d=candidatos.length===1?candidatos[0]:null, h=[];
-      var f={_p:p,_d:d,fecha:p.fecha||'',hora:p.hora||'',cedula:ci,nombre:p.nombre||'',apellido:p.apellido||'',sexo:p.sexo||'',fnac:p.fnac||''};
+      var f={_p:p,_d:d,fecha:p.fecha||'',hora:p.hora||'',cedula:ci,nombre:p.nombre||'',apellido:p.apellido||'',fnac:p.fnac||''};
       candidatos.forEach(function(c) { usados.add(c); });
       function add(s,t) { h.push([s,t]); }
       if(candidatos.length>1) add('warn','Varios documentos tienen este número. Revisar cuál corresponde; no se eligió uno automáticamente.');
@@ -73,15 +73,9 @@
         var nacP=fecha(p.fnac), nacD=fecha(d.fnac);
         if(nacP && nacD && nacP!==nacD) add('error','FECHA DE NACIMIENTO DIFERENTE — planilla: '+nacP+'; documento: '+nacD);
         else if(!nacP || !nacD) add('warn','Fecha de nacimiento sin verificar: falta o no es válida en una fuente.');
-        // La sala no coteja el sexo: la columna se saco de la tabla y que una
-        // fuente no lo traiga no se reporta. Una diferencia si se reporta,
-        // porque no habla del sexo sino de que el documento podria no ser de
-        // la persona de la fila.
-        var sP=String(p.sexo||'').toUpperCase(), sD=String(d.sexo||'').toUpperCase();
-        if(/^[MF]$/.test(sP)&&/^[MF]$/.test(sD)&&sP!==sD) add('error','Sexo diferente — planilla: '+sP+'; documento: '+sD);
-        // La vigencia del documento tampoco se coteja, por decision de la sala.
-        // El vencimiento se sigue extrayendo y viaja en los datos, asi que
-        // volver a mirarlo es una regla, no una relectura.
+        // Ni el sexo ni la vigencia del documento se cotejan: por decision de
+        // la sala no se comparan, no se muestran y ya no se extraen. Volver a
+        // mirarlos exige releer los papeles, no solo cambiar esta regla.
         if(!fecha(p.fecha)) add('warn','Fecha de ingreso faltante o inválida.');
       }
       // Por registro, no para todo el cotejo: un campo ilegible en un documento
@@ -92,9 +86,9 @@
       // no se pudo leer.
       if(p._incompleto || (d && d._incompleto)) add('warn','Lectura incompleta en este registro: pendiente de revisión.');
       // 'nota' se muestra en la observacion pero no baja el estado. Todo lo
-      // demas si: una ausencia que puede esconder un riesgo --vencimiento sin
-      // leer esconde un documento vencido, nacimiento sin leer esconde un
-      // menor, nombre sin leer es la identidad misma-- sigue siendo aviso.
+      // demas si: una ausencia que puede esconder un riesgo --un nacimiento
+      // sin leer esconde un menor, un nombre sin leer es la identidad misma--
+      // sigue siendo aviso.
       function hay(nivel){ return h.some(function(x){ return x[0]===nivel; }); }
       f.estado=hay('error')?'error':hay('warn')?'warn':hay('nd')?'nd':'ok';
       f.obs=h.map(function(x){return x[1];}).join(' · '); out.push(f);
@@ -102,7 +96,7 @@
     docs.forEach(function(d) {
       if(usados.has(d)) return;
       var ci=numero(d.cedula);
-      out.push({_p:null,_d:d,fecha:'',hora:'',cedula:ci,nombre:d.nombre||'',apellido:d.apellido||'',sexo:d.sexo||'',fnac:d.fnac||'',
+      out.push({_p:null,_d:d,fecha:'',hora:'',cedula:ci,nombre:d.nombre||'',apellido:d.apellido||'',fnac:d.fnac||'',
         estado:completa&&!d._incompleto&&ci&&ciValida(ci)?'error':'warn',obs:!ci?'Documento sin número legible: completar desde el original.':completa?'Documento sin número coincidente en la planilla.':'Lectura incompleta: no se puede confirmar si este documento figura en la planilla.'});
     });
     return out;

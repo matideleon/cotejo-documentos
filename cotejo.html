@@ -188,14 +188,14 @@ tr.f-error{background:rgba(255,61,87,.035)}tr.f-warn{background:rgba(255,171,0,.
 </div>
 
 </div>
-<div style="text-align:center;opacity:.35;font:11px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;padding:.8rem 0">cotejo <span class="version">ve01ae5f2</span></div>
+<div style="text-align:center;opacity:.35;font:11px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;padding:.8rem 0">cotejo <span class="version">vdc5a7786</span></div>
 <div class="toast" id="toast"></div>
 
 <script src="vendor/pdf.min.js"></script>
-<script src="extraccion.js?v=e01ae5f2"></script>
-<script src="servidor.js?v=e01ae5f2"></script>
-<script src="cotejo-core.js?v=e01ae5f2"></script>
-<script src="lectura-imagenes.js?v=e01ae5f2"></script>
+<script src="extraccion.js?v=dc5a7786"></script>
+<script src="servidor.js?v=dc5a7786"></script>
+<script src="cotejo-core.js?v=dc5a7786"></script>
+<script src="lectura-imagenes.js?v=dc5a7786"></script>
 <script>
 /* ═══════════════════════════════════════════════════════════════════
    Cotejo de documentos — version simple.
@@ -577,10 +577,10 @@ function corregir(i, campo, valor){
 
 /* ───── salida ───── */
 function tablaCSV(){
-  var h = ["#","Fecha","Hora","Cedula","Nombre","Apellido","Sexo","F.Nacimiento","Estado","Observacion"];
+  var h = ["#","Fecha","Hora","Cedula","Nombre","Apellido","F.Nacimiento","Estado","Observacion"];
   var q = function(v){ return '"' + (""+(v==null?"":v)).replace(/"/g,'""') + '"'; };
   return [h.join(",")].concat(S.filas.map(function(f,i){
-    return [i+1, f.fecha, f.hora, f.cedula, f.nombre, f.apellido, f.sexo, f.fnac,
+    return [i+1, f.fecha, f.hora, f.cedula, f.nombre, f.apellido, f.fnac,
       f.estado.toUpperCase(), f.obs].map(q).join(",");
   })).join("\n");
 }
