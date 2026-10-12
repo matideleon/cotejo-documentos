@@ -85,10 +85,19 @@ Deno.serve(async (req: Request) => {
   // deno-lint-ignore no-explicit-any
   const cuerpo: Record<string, any> = { model: modelo, messages: [{ role: 'user', content: contenido }], store: false };
   // OpenAI usa max_completion_tokens; el resto de los proveedores, max_tokens.
-  // En los modelos que razonan (familia GPT-5) ese tope incluye el razonamiento:
-  // si queda corto, el modelo lo gasta pensando y devuelve texto vacio.
-  if (esOpenAI) cuerpo.max_completion_tokens = 16000;
-  else cuerpo.max_tokens = 4000;
+  // En los modelos que razonan ese tope incluye el razonamiento: si queda
+  // corto, el modelo lo gasta pensando y devuelve texto vacio. Ya nos paso una
+  // vez con la familia GPT-5 y costo horas de diagnostico, asi que el tope es
+  // configurable sin desplegar: si se cambia a un modelo que razona y empiezan
+  // a aparecer respuestas truncadas, se sube LLM_MAX_TOKENS y listo. Solo se
+  // paga lo que se genera, no el tope.
+  // 16000 para todos. El valor viejo para los que no son OpenAI era 4000, y
+  // alguien ya lo habia subido a mano en el servidor: dejarlo en 4000 aca
+  // habria pisado ese arreglo al proximo despliegue, en silencio y a favor
+  // del valor peor. Solo se paga lo generado, no el tope.
+  const tope = Number(Deno.env.get('LLM_MAX_TOKENS')) || 16000;
+  if (esOpenAI) cuerpo.max_completion_tokens = tope;
+  else cuerpo.max_tokens = tope;
 
   const cabeceras: Record<string, string> = { 'content-type': 'application/json', 'authorization': 'Bearer ' + apiKey };
   if (baseUrl.indexOf('openrouter') !== -1) {
@@ -115,7 +124,17 @@ Deno.serve(async (req: Request) => {
 
     const choice = data?.choices?.[0];
     if (!choice || choice.finish_reason !== 'stop' || choice.message?.refusal) {
-      return json(502, { error: 'La lectura fue rechazada o truncada; revisar esta parte.' });
+      // El motivo va en el mensaje: 'length' significa que falto tope y se
+      // arregla con LLM_MAX_TOKENS, no releyendo la pagina ni cambiando de
+      // modelo. Sin esta palabra, los dos casos se ven iguales desde la app.
+      const motivo = choice?.message?.refusal ? 'el modelo la rechazo'
+        // La palabra "truncada" no es decorativa: es la que lectura-imagenes.js
+        // reconoce para volver a cortar la parte en pedazos mas chicos. Si se
+        // cambia por un sinonimo, la red de seguridad deja de dispararse y
+        // nada mas se queja.
+        : choice?.finish_reason === 'length' ? 'quedo truncada por el tope de tokens (subir LLM_MAX_TOKENS)'
+        : 'motivo ' + (choice?.finish_reason || 'desconocido');
+      return json(502, { error: 'La lectura no se completo: ' + motivo + '. Revisar esta parte.' });
     }
     try { return json(200, Extraccion.parsear(texto)); }
     catch (e) { return json(502, { error: (e as Error).message }); }

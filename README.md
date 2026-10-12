@@ -118,6 +118,19 @@ proveedor es I/O y no cuenta. Se despliega con
 enlace simbólico al de la raíz: los prompts y la validación son los mismos en el
 navegador y en el servidor, sin copias que se desincronicen.
 
+Sirve cualquier proveedor compatible con Chat Completions. Para OpenRouter:
+`LLM_BASE_URL=https://openrouter.ai/api/v1`, `LLM_API_KEY` con la clave de
+OpenRouter y `LLM_MODEL` con el slug completo (`proveedor/modelo`). La función
+agrega sola las cabeceras `HTTP-Referer` y `X-Title` que OpenRouter pide para
+atribuir el tráfico. No hay que desplegar nada: son tres secretos.
+
+Al cambiar de modelo, el control de celdas es la red: si el modelo lee mal, la
+cantidad de filas no cuadra con la cuadrícula, esa respuesta no entra en la tabla
+y la banda se vuelve a cortar. Un modelo malo se nota como partes sin leer, no
+como datos equivocados. Sumado al dígito verificador, probar uno barato es barato.
+Ojo con los que facturan la imagen con un tope bajo de tokens: son baratos porque
+la miran en baja resolución, y acá un dígito cambia a la persona.
+
 Secretos del proyecto de Supabase (Edge Functions → Secrets):
 
 | Secreto | Uso |
@@ -127,6 +140,7 @@ Secretos del proyecto de Supabase (Edge Functions → Secrets):
 | `LLM_BASE_URL` | Endpoint compatible con Chat Completions. Por defecto `https://api.openai.com/v1`. |
 | `LLM_MODEL` | Modelo con visión. También acepta `OPENAI_MODEL`. Por defecto `gpt-5-mini`, que es el verificado sobre estos escaneos; comprobar disponibilidad en tu cuenta antes de cambiarlo. |
 | `LLM_IMAGE_DETAIL` | Por defecto `high`. Un detalle menor puede empeorar la lectura de texto. |
+| `LLM_MAX_TOKENS` | Tope de la respuesta. Por defecto 16000 con cualquier proveedor. En los modelos que razonan ese tope incluye el razonamiento: si queda corto, el modelo lo gasta pensando y la respuesta llega truncada. Solo se paga lo generado, no el tope. |
 | `COTEJO_ORIGEN` | Opcional. Restringe CORS a un origen; por defecto `*`. No reemplaza a `COTEJO_CLAVE`: CORS lo respeta un navegador, no un script. |
 
 La clave de la sala se pone **una sola vez por máquina**: la versión simple tiene
