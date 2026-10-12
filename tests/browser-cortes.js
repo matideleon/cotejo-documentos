@@ -130,5 +130,42 @@ return (async()=>{
   resultado.recursionAcotada={llamadas,filas:r.regs.length};
  }
 
+
+ // 7. Los mensajes que de verdad devuelve la funcion de Supabase, textuales.
+ // La clasificacion vive en una expresion regular y los mensajes en otro
+ // archivo, en otro lenguaje y en otro servidor: nada obliga a que sigan
+ // coincidiendo salvo esta prueba. Si alguien reemplaza "truncada" por un
+ // sinonimo, la red de seguridad deja de dispararse y nada mas se queja.
+ {
+  const truncada='La lectura no se completo: quedo truncada por el tope de tokens (subir LLM_MAX_TOKENS). Revisar esta parte.';
+  const rechazo='La lectura no se completo: el modelo la rechazo. Revisar esta parte.';
+  const tiempoFn='Se agoto el tiempo de lectura; esta parte quedo sin verificar.';
+
+  // Truncada: se vuelve a cortar, porque una banda mas chica entra en el tope.
+  let pedidos=[];
+  let r=await LecturaImagenes.leer(cuadricula(10),'planilla',(u,tipo,parte)=>{
+   pedidos.push(parte.celdas);
+   if(parte.celdas===7)throw new Error(truncada);
+   return ok(Array.from({length:parte.celdas},(_,i)=>fila('4123456'+i,'2'+i+':00')));
+  });
+  assert(pedidos.includes(4)&&pedidos.includes(3),'una respuesta truncada no disparo el corte: '+pedidos.join(','));
+  assert(r.regs.length===10,'se perdieron filas tras una respuesta truncada: '+r.regs.length);
+
+  // El tiempo agotado del lado de la funcion tambien.
+  pedidos=[];
+  await LecturaImagenes.leer(cuadricula(10),'planilla',(u,tipo,parte)=>{
+   pedidos.push(parte.celdas);
+   if(parte.celdas===7)throw new Error(tiempoFn);
+   return ok(Array.from({length:parte.celdas},(_,i)=>fila('4123456'+i,'2'+i+':00')));
+  });
+  assert(pedidos.includes(4),'el tiempo agotado de la funcion no disparo el corte: '+pedidos.join(','));
+
+  // Un rechazo del modelo NO: cortar no lo arregla y solo gasta llamadas.
+  let llamadas=0;
+  r=await LecturaImagenes.leer(cuadricula(10),'planilla',()=>{llamadas++;throw new Error(rechazo);});
+  const partes=(await LecturaImagenes.preparar(cuadricula(10),'planilla')).partes.length;
+  assert(llamadas===partes,'reintento un rechazo del modelo: '+llamadas+' llamadas para '+partes+' partes');
+  resultado.mensajesDeLaFuncion={truncadaCorta:true,tiempoCorta:true,rechazoNoCorta:true};
+ }
  return resultado;
 })()
